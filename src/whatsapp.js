@@ -1,11 +1,12 @@
-import { money, fmtDate, waNumber, prettyPhone } from "./lib";
+import { money, fmtDate, waNumber, prettyPhone, isOpen, siteOf } from "./lib";
 import { renderInvoiceImage } from "./invoiceImage";
 
 export function invoiceMessage(inv, company) {
-  const open = inv.status === "Pending" || inv.status === "Overdue";
-  return [`Hello ${inv.customer},`, `Here is your invoice ${inv.id} from ${company}.`,
-    open ? `Amount due: ${money(inv.amount)}${inv.dueDate ? ` (due ${fmtDate(inv.dueDate)})` : ""}.` : inv.status === "Paid" ? `Amount: ${money(inv.amount)}. Paid, thank you!` : `Amount: ${money(inv.amount)}.`,
-    "Thank you for your business."].join("\n");
+  const open = isOpen(inv);
+  const site = siteOf(inv);
+  return [`Hello ${inv.customer},`, `Here is your invoice ${inv.id} from ${company}.`, site ? `Site: ${site}` : "",
+    open ? (inv.paidAmount > 0 ? `Invoice total: ${money(inv.amount)}. Received: ${money(inv.paidAmount)}. Amount due: ${money(inv.balance)}${inv.dueDate ? ` (due ${fmtDate(inv.dueDate)})` : ""}.` : `Amount due: ${money(inv.amount)}${inv.dueDate ? ` (due ${fmtDate(inv.dueDate)})` : ""}.`) : inv.status === "Paid" ? `Amount: ${money(inv.amount)}. Paid, thank you!` : `Amount: ${money(inv.amount)}.`,
+    "Thank you for your business."].filter(Boolean).join("\n");
 }
 export const waLink = (inv, company) => `https://wa.me/${waNumber(inv.customerPhone)}?text=${encodeURIComponent(invoiceMessage(inv, company))}`;
 
@@ -70,4 +71,12 @@ export async function shareInvoicePicture(inv, company) {
   if (!navigator.canShare?.(data)) throw new Error("This browser cannot share pictures. Use the WhatsApp button instead.");
   try { await navigator.share(data); return `Choose WhatsApp, then ${inv.customer}.`; }
   catch (e) { if (e?.name === "AbortError") return ""; throw e; }
+}
+
+// Opens the customer's chat with a ready message (used when the server could not send the WhatsApp update by itself).
+export function openChatWithText(number, text) {
+  const n = waNumber(number);
+  if (!n) return;
+  if (isMobileDevice()) openWhatsAppApp(n, text);
+  else window.open(`https://wa.me/${n}?text=${encodeURIComponent(text)}`, "_blank");
 }

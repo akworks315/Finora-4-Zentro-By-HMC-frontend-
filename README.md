@@ -19,4 +19,14 @@ Income is counted in the month an invoice is marked **Paid**; expenses in the mo
     cd Finora-frontend && npm install && npm run dev    # http://localhost:5173
 
 ## Which server is used
-On every load (and on Refresh) the app checks the **online** backend (`https://finora-backend-lilac.vercel.app/api`) first. If it is down or its database is not connected, it uses the **local** server (`http://localhost:5000/api`, start it with `npm run dev` in Finora-backend). The sidebar shows which one is active. Override with `VITE_API_URL` and `VITE_LOCAL_API_URL` before building.
+The app talks to the **online** backend `https://finora-4-zentro-by-hmc-backend.vercel.app/api`. On localhost only, it falls back to `http://localhost:5000/api`
+if the online one is down. The sidebar shows which one is active. Override with `VITE_API_URL` / `VITE_LOCAL_API_URL` (see `.env.example`) before building.
+Needs backend **v4** (`/api/health` shows the version); an older backend shows a clear "redeploy the backend" message.
+
+## New in this version
+- **New sale** asks for **house / plot no.** and **address** (shown on the invoice, PDF, picture, Customers and search).
+- **Part payments**: open an invoice > *Payments* > record any amount. Status goes Pending → **Partial** → **Paid** automatically; the Paid stamp appears when fully received. Income reports count each payment in the month it was received.
+- **WhatsApp update to the customer** after every payment / invoice change (automatic if the backend has the WhatsApp API keys, otherwise one tap on *Send on WhatsApp*).
+- **Expenses**: *Paid to* (employee / seller) with type, a **search box** (name, title, category) and a **Spending by person** table with the total spent on each.
+- **Work & calculators**: the currency converter is removed. New **construction calculator**: rate per sq ft × area = amount to pay the employee, saved as a work order.
+- **Working permissions**: permission no., start and due date per work. Permissions expiring this month (or within 30 days) or already expired show in the dashboard follow-up, in the bell alerts and on the Work page, with a **Renew** form that keeps the old dates in history.
