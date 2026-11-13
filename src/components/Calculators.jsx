@@ -117,10 +117,10 @@ function ConstructionCalc({ employees, onSave, notify }) {
   </section>;
 }
 
-export default function Calculators({ works = [], employees = [], onSaveWork, onRenewWork, onFixWork, onWorkStatus, onDeleteWork, notify }) {
+export default function Calculators({ works = [], employees = [], onSaveWork, onRenewWork, onFixWork, onWorkStatus, onDeleteWork, onBillWork, notify }) {
   return <div className="page-gap">
     <ConstructionCalc employees={employees} onSave={onSaveWork} notify={notify} />
-    <WorkOrders works={works} onRenew={onRenewWork} onFix={onFixWork} onStatus={onWorkStatus} onDelete={onDeleteWork} notify={notify} />
+    <WorkOrders works={works} onRenew={onRenewWork} onFix={onFixWork} onStatus={onWorkStatus} onDelete={onDeleteWork} onBill={onBillWork} notify={notify} />
     <div className="calc-grid"><EmiCalc /><GrowthCalc /></div>
   </div>;
 }

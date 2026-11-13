@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
-import { Plus, Trash2, Download, TrendingUp, TrendingDown, HandCoins, Receipt, Percent, Search, X, User } from "lucide-react";
-import { money, fmtDate, toInputDate, toLocalDay, downloadText, monthlyReport, expenseDate, paymentEvents, MONTHS_LONG } from "../lib";
-import { Button, Empty, Segmented } from "./ui";
+import { Plus, Trash2, Download, ChevronDown, ChevronUp, Wallet, TrendingUp, TrendingDown, HandCoins, Receipt, Percent, Search, X, User } from "lucide-react";
+import { isValidPhone, isOpen, money, fmtDate, toInputDate, toLocalDay, downloadText, monthlyReport, expenseDate, paymentEvents, MONTHS_LONG } from "../lib";
+import { Button, Empty, Segmented, Status } from "./ui";
 
 export const CATEGORIES = ["Rent", "Utilities", "Salaries", "Labour", "Materials", "Permits", "Marketing", "Software", "Travel", "Supplies", "Other"];
 export const PAYEE_TYPES = ["Employee", "Seller", "Contractor", "Other"];
@@ -84,7 +84,7 @@ function Report({ sales, expenses }) {
     </section>
 
     <section className="panel">
-      <div className="panel-head"><div><h3>Month-wise report</h3><p>Income is counted in the month an invoice was paid. Expenses in the month they were spent.</p></div></div>
+      <div className="panel-head"><div><h3>Month-wise report</h3><p>Income is counted in the month each payment was received. Expenses in the month they were spent.</p></div></div>
       <div className="table-wrap"><table className="report">
         <thead><tr><th>Month</th><th className="r">Invoiced</th><th className="r">Income</th><th className="r">Expenses</th><th className="r">Profit / Loss</th><th className="r">Margin</th></tr></thead>
         <tbody>{rows.map(r => {
@@ -110,12 +110,14 @@ function Entries({ expenses, budgets, people, onAdd, onRemove, onSetLimit, notif
   const [busy, setBusy] = useState(false);
   const [month, setMonth] = useState("all");
   const [q, setQ] = useState("");
+  const [allPeople, setAllPeople] = useState(false), [allBudget, setAllBudget] = useState(false), [allRows, setAllRows] = useState(false);
   const rows = useMemo(() => expenses.map(e => ({ ...e, d: expenseDate(e) })).sort((a, b) => b.d - a.d), [expenses]);
   const months = useMemo(() => [...new Set(rows.map(r => `${r.d.getFullYear()}-${String(r.d.getMonth()).padStart(2, "0")}`))].sort().reverse(), [rows]);
   const needle = q.trim().toLowerCase();
   const shown = rows.filter(r => (month === "all" || `${r.d.getFullYear()}-${String(r.d.getMonth()).padStart(2, "0")}` === month)
     && (!needle || [r.payee, r.title, r.category, r.payeeType, r.notes].join(" ").toLowerCase().includes(needle)));
   const status = useMemo(() => budgetStatus(expenses, budgets), [expenses, budgets]);
+  const preview = useMemo(() => { const used = status.filter(x => x.limit || x.spent > 0).sort((a, b) => b.pct - a.pct || b.spent - a.spent); return (used.length ? used : status).slice(0, 4); }, [status]);
   const monthTotal = status.reduce((a, s) => a + s.spent, 0);
   const pie = status.filter(s => s.spent > 0).map(s => ({ name: s.category, value: s.spent }));
   const names = useMemo(() => [...new Set([...people, ...expenses.map(e => e.payee).filter(Boolean)])].sort((a, b) => a.localeCompare(b)), [people, expenses]);
@@ -153,10 +155,20 @@ function Entries({ expenses, budgets, people, onAdd, onRemove, onSetLimit, notif
       </form>
     </section>
 
+    <section className="panel">
+      <div className="panel-head"><div><h3>Spending by person</h3><p>How much you spent on each employee or seller{month !== "all" ? " in the selected month" : ""}{q ? ` matching “${q}”` : ""}. Tap a name to see every payment to them.</p></div></div>
+      {byPerson.length === 0 ? <Empty title="No names yet" text="Fill “Paid to” when you add an expense and each person's total shows here." /> :
+        <div className="table-wrap"><table className="compact"><thead><tr><th>Person</th><th>Type</th><th className="r">Payments</th><th>Last paid</th><th className="r">Total spent</th></tr></thead>
+          <tbody>{(allPeople ? byPerson : byPerson.slice(0, 5)).map(p => <tr key={p.name} className="clickable" onClick={() => setQ(p.name)}><td><div className="who"><span className="avatar"><User size={14} /></span><b>{p.name}</b></div></td><td>{p.type}</td><td className="r num">{p.count}</td><td>{fmtDate(p.last)}</td><td className="r num"><b>{money(p.total)}</b></td></tr>)}</tbody></table></div>}
+      {byPerson.length > 5 && <div className="view-all"><Button kind="ghost" onClick={() => setAllPeople(v => !v)}>{allPeople ? <><ChevronUp size={15} />Show top 5</> : <><ChevronDown size={15} />View all {byPerson.length} people</>}</Button></div>}
+      {unnamed > 0 && <p className="hint">{money(unnamed)} was recorded without a person's name.</p>}
+    </section>
+
+
     <div className="grid-2">
       <section className="panel">
         <div className="panel-head"><div><h3>This month’s budget</h3><p>Spent so far: <b className="num">{money(monthTotal)}</b>. Alerts at 80% and 100% of a limit.</p></div></div>
-        <ul className="budget-list">{status.map(s => <li key={s.category} className={`lvl-${s.level}`}>
+        <ul className="budget-list">{(allBudget ? status : preview).map(s => <li key={s.category} className={`lvl-${s.level}`}>
           <div className="budget-top"><b>{s.category}</b><span className="num">{money(s.spent)}{s.limit ? ` / ${money(s.limit)}` : ""}</span></div>
           <div className="meter"><i style={{ width: `${Math.min(100, s.pct * 100)}%` }} /></div>
           <div className="budget-bot">
@@ -165,6 +177,7 @@ function Entries({ expenses, budgets, people, onAdd, onRemove, onSetLimit, notif
               onBlur={async e => { const v = e.target.value; if (v === "" || Number(v) === s.limit) return; try { await onSetLimit(s.category, Number(v)); notify(`${s.category} limit saved`); } catch (ex) { notify(ex.message, true); } }} />
           </div>
         </li>)}</ul>
+        {status.length > preview.length && <div className="view-all"><Button kind="ghost" onClick={() => setAllBudget(v => !v)}>{allBudget ? <><ChevronUp size={15} />Show fewer</> : <><ChevronDown size={15} />View all {status.length} categories</>}</Button></div>}
       </section>
       <section className="panel">
         <div className="panel-head"><div><h3>Where money went</h3><p>This month, by category</p></div></div>
@@ -176,13 +189,6 @@ function Entries({ expenses, budgets, people, onAdd, onRemove, onSetLimit, notif
       </section>
     </div>
 
-    <section className="panel">
-      <div className="panel-head"><div><h3>Spending by person</h3><p>How much you spent on each employee or seller{month !== "all" ? " in the selected month" : ""}{q ? ` matching “${q}”` : ""}. Tap a name to see every payment to them.</p></div></div>
-      {byPerson.length === 0 ? <Empty title="No names yet" text="Fill “Paid to” when you add an expense and each person's total shows here." /> :
-        <div className="table-wrap"><table className="compact"><thead><tr><th>Person</th><th>Type</th><th className="r">Payments</th><th>Last paid</th><th className="r">Total spent</th></tr></thead>
-          <tbody>{byPerson.map(p => <tr key={p.name} className="clickable" onClick={() => setQ(p.name)}><td><div className="who"><span className="avatar"><User size={14} /></span><b>{p.name}</b></div></td><td>{p.type}</td><td className="r num">{p.count}</td><td>{fmtDate(p.last)}</td><td className="r num"><b>{money(p.total)}</b></td></tr>)}</tbody></table></div>}
-      {unnamed > 0 && <p className="hint">{money(unnamed)} was recorded without a person's name.</p>}
-    </section>
 
     <section className="panel">
       <div className="panel-head"><div><h3>All expenses</h3><p>{shown.length} {shown.length === 1 ? "entry" : "entries"} · <b className="num">{money(shown.reduce((a, r) => a + Number(r.amount), 0))}</b>{exactPerson ? <> · total spent on <b>{exactPerson}</b></> : null}</p></div>
@@ -192,16 +198,75 @@ function Entries({ expenses, budgets, people, onAdd, onRemove, onSetLimit, notif
           <Button kind="outline" onClick={csv} disabled={!shown.length}><Download size={15} />Export CSV</Button></div></div>
       {shown.length === 0 ? <Empty title={rows.length ? "No expenses match" : "No expenses yet"} text={rows.length ? "Try another name or month." : "Record spending above to track it against your income."} /> :
         <div className="table-wrap"><table><thead><tr><th>Date</th><th>Paid to</th><th>Title</th><th>Category</th><th className="r">Amount</th><th className="r"><span className="sr">Delete</span></th></tr></thead>
-          <tbody>{shown.map(r => <tr key={r.id}><td>{fmtDate(r.d)}</td><td>{r.payee ? <><b className="link-name" onClick={() => setQ(r.payee)}>{r.payee}</b><small>{r.payeeType}</small></> : "—"}</td><td><b>{r.title}</b></td><td><span className="cat"><i style={{ background: catColor(r.category) }} />{r.category}</span></td><td className="r num"><b>{money(r.amount)}</b></td>
+          <tbody>{(q || allRows ? shown : shown.slice(0, 8)).map(r => <tr key={r.id}><td>{fmtDate(r.d)}</td><td>{r.billId && <small>Bill payment</small>}{r.payee ? <><b className="link-name" onClick={() => setQ(r.payee)}>{r.payee}</b><small>{r.payeeType}</small></> : "—"}</td><td><b>{r.title}</b></td><td><span className="cat"><i style={{ background: catColor(r.category) }} />{r.category}</span></td><td className="r num"><b>{money(r.amount)}</b></td>
             <td className="r"><Button kind="ghost" aria-label={`Delete ${r.title}`} onClick={async () => { if (!window.confirm(`Delete “${r.title}”?`)) return; try { await onRemove(r.id); notify("Expense deleted"); } catch (ex) { notify(ex.message, true); } }}><Trash2 size={15} /></Button></td></tr>)}</tbody></table></div>}
+      {!q && shown.length > 8 && <div className="view-all"><Button kind="ghost" onClick={() => setAllRows(v => !v)}>{allRows ? <><ChevronUp size={15} />Show latest 8</> : <><ChevronDown size={15} />View all {shown.length} expenses</>}</Button></div>}
     </section>
   </>;
 }
 
-export default function Expenses({ sales, expenses, budgets, people = [], onAdd, onRemove, onSetLimit, notify }) {
+
+function Bills({ bills, people, onAdd, onOpen, notify }) {
+  const due = new Date(); due.setDate(due.getDate() + 14);
+  const [f, setF] = useState({ payee: "", payeePhone: "", payeeType: "Employee", title: "", category: "Labour", amount: "", dueDate: toInputDate(due), paidNow: "", method: "Cash" });
+  const [busy, setBusy] = useState(false), [q, setQ] = useState(""), [tab, setTab] = useState("open"), [all, setAll] = useState(false);
+  const set = (k, v) => setF(x => ({ ...x, [k]: v }));
+  const names = useMemo(() => [...new Set([...people, ...bills.map(b => b.customer)])].sort((a, b) => a.localeCompare(b)), [people, bills]);
+  const total = Number(f.amount) || 0, paid = Number(f.paidNow) || 0;
+  const pickPerson = v => { const known = bills.find(b => b.customer.toLowerCase() === v.trim().toLowerCase()); setF(x => ({ ...x, payee: v, payeePhone: x.payeePhone || known?.customerPhone || "", payeeType: known?.payeeType || x.payeeType })); };
+  const toPay = bills.filter(isOpen).reduce((a, b) => a + b.balance, 0);
+  const shown = bills.filter(b => (tab === "all" || (tab === "open" && isOpen(b)) || (tab === "paid" && b.status === "Paid")) && [b.customer, b.service, b.category].join(" ").toLowerCase().includes(q.trim().toLowerCase()));
+  const list = q || all ? shown : shown.slice(0, 8);
+
+  const submit = async e => {
+    e.preventDefault();
+    if (!f.payee.trim()) return notify("Enter the name of the person you pay.", true);
+    if (f.payeePhone.trim() && !isValidPhone(f.payeePhone)) return notify("WhatsApp number looks wrong. Use e.g. 0300 1234567.", true);
+    if (!f.title.trim()) return notify("Enter what the payment is for.", true);
+    if (!(total > 0)) return notify("Enter the total amount you have to pay.", true);
+    if (paid < 0 || paid > total) return notify("Amount paid now must be between 0 and the total.", true);
+    setBusy(true);
+    try { await onAdd({ ...f, payee: f.payee.trim(), title: f.title.trim(), amount: total, paidNow: paid, method: paid > 0 ? f.method : "Not recorded" }); setF(x => ({ ...x, payee: "", payeePhone: "", title: "", amount: "", paidNow: "" })); }
+    catch (ex) { notify(ex.message, true); } finally { setBusy(false); }
+  };
+
+  return <>
+    <section className="panel">
+      <div className="panel-head"><div><h3>New bill to pay</h3><p>Money you have to give to an employee, seller or contractor. Pay it in parts; each payment counts as an expense and the person can get a WhatsApp update.</p></div></div>
+      <form className="form expense-form" onSubmit={submit}>
+        <label>Pay to <em>name</em><input list="bill-people" value={f.payee} onChange={e => pickPerson(e.target.value)} placeholder="e.g. Bilal Ahmed" /></label>
+        <datalist id="bill-people">{names.map(n => <option key={n} value={n} />)}</datalist>
+        <label>WhatsApp number <em>for updates</em><input type="tel" inputMode="tel" value={f.payeePhone} onChange={e => set("payeePhone", e.target.value)} placeholder="0300 1234567" /></label>
+        <label>Person is a<select value={f.payeeType} onChange={e => set("payeeType", e.target.value)}>{PAYEE_TYPES.map(c => <option key={c}>{c}</option>)}</select></label>
+        <label>What for<input value={f.title} onChange={e => set("title", e.target.value)} placeholder="e.g. Plaster work, Plot 12" /></label>
+        <label>Category<select value={f.category} onChange={e => set("category", e.target.value)}>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></label>
+        <label>Total to pay (Rs)<input type="number" min="0" step="any" inputMode="decimal" value={f.amount} onChange={e => set("amount", e.target.value)} /></label>
+        <label>Pay by <em>due date</em><input type="date" value={f.dueDate} onChange={e => set("dueDate", e.target.value)} /></label>
+        <label>Paid now <em>optional</em><input type="number" min="0" step="any" inputMode="decimal" value={f.paidNow} onChange={e => set("paidNow", e.target.value)} placeholder="0" /></label>
+        {paid > 0 ? <label>Paid by<select value={f.method} onChange={e => set("method", e.target.value)}><option>Cash</option><option>Bank Transfer</option><option>Card</option><option>Online</option><option>Cheque</option></select></label> : <div />}
+        {total > 0 && <div className="pay-hint" style={{ gridColumn: "1 / -1" }}>{paid >= total ? "Whole amount paid: the bill will be marked Paid." : paid > 0 ? `${money(paid)} paid, ${money(total - paid)} still to pay (Partial).` : "Nothing paid yet. You can record payments later, in parts."}</div>}
+        <div className="swap"><Button type="submit" disabled={busy}><Plus size={15} />Save bill</Button></div>
+      </form>
+    </section>
+
+    <section className="panel">
+      <div className="panel-head"><div><h3>Bills to pay</h3><p>Still to pay: <b className="num">{money(toPay)}</b> · open a bill to record a payment, send a WhatsApp update or download the slip.</p></div>
+        <div className="toolbar-right"><label className="search"><Search size={16} /><input placeholder="Search name, title…" value={q} onChange={e => setQ(e.target.value)} /></label></div></div>
+      <div className="toolbar"><Segmented label="Show" value={tab} onChange={setTab} options={[["open", "To pay"], ["paid", "Paid"], ["all", "All"]]} /></div>
+      {shown.length === 0 ? <Empty title={bills.length ? "Nothing here" : "No bills yet"} text={bills.length ? "Try another filter or search." : "Add the money you owe to someone above."} /> :
+        <div className="table-wrap"><table><thead><tr><th>Person</th><th>For</th><th className="r">Total</th><th className="r">Paid / left</th><th>Status</th></tr></thead>
+          <tbody>{list.map(b => <tr key={b.id} className="clickable" onClick={() => onOpen(b)}>
+            <td><b>{b.customer}</b><small>{b.payeeType}</small></td><td>{b.service}<small>{b.category}{b.dueDate ? ` · due ${fmtDate(b.dueDate)}` : ""}</small></td>
+            <td className="r num"><b>{money(b.amount)}</b></td><td className="r num">{money(b.paidAmount)}<small>left {money(b.balance)}</small></td><td><Status value={b.status} /></td></tr>)}</tbody></table></div>}
+      {!q && shown.length > 8 && <div className="view-all"><Button kind="ghost" onClick={() => setAll(v => !v)}>{all ? <><ChevronUp size={15} />Show latest 8</> : <><ChevronDown size={15} />View all {shown.length} bills</>}</Button></div>}
+    </section>
+  </>;
+}
+
+export default function Expenses({ sales, expenses, bills = [], budgets, people = [], onAdd, onAddBill, onOpenBill, onRemove, onSetLimit, notify }) {
   const [tab, setTab] = useState("report");
   return <>
-    <Segmented label="Expenses section" value={tab} onChange={setTab} options={[["report", "Monthly report"], ["entries", "Expenses & budgets"]]} />
-    {tab === "report" ? <Report sales={sales} expenses={expenses} /> : <Entries {...{ expenses, budgets, people, onAdd, onRemove, onSetLimit, notify }} />}
+    <Segmented label="Expenses section" value={tab} onChange={setTab} options={[["report", "Monthly report"], ["entries", "Expenses & budgets"], ["bills", `Bills to pay${bills.filter(isOpen).length ? ` (${bills.filter(isOpen).length})` : ""}`]]} />
+    {tab === "report" ? <Report sales={sales} expenses={expenses} /> : tab === "bills" ? <Bills {...{ bills, people, onAdd: onAddBill, onOpen: onOpenBill, notify }} /> : <Entries {...{ expenses, budgets, people, onAdd, onRemove, onSetLimit, notify }} />}
   </>;
 }

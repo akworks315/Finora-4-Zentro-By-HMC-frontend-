@@ -430,3 +430,5 @@ td small, .who small { display: block; }
   .pay-form { grid-template-columns: 1fr 1fr; } .pay-list li { grid-template-columns: 1fr auto auto; } .pay-list li > span:nth-child(2) { grid-column: 1 / -1; order: 3; }
   .expense-form { grid-template-columns: 1fr; }
 }
+.view-all { display: flex; justify-content: center; margin-top: 10px; }
+tr.clickable { cursor: pointer; } tr.clickable:hover td { background: var(--hover); }

@@ -1,9 +1,9 @@
-import { money, fmtDate, prettyPhone, loadLogo, siteOf, isOpen } from "./lib";
+import { money, fmtDate, prettyPhone, loadLogo, siteOf, isOpen, docLabels } from "./lib";
 
 // Draws the invoice as a PNG (always light "paper" style, independent of day/night mode) so it can be sent as a picture.
 export async function renderInvoiceImage(inv, company = "Finora Services") {
   try { await document.fonts?.ready; } catch {}
-  const logo = await loadLogo();
+  const logo = await loadLogo(); const L = docLabels(inv);
   const W = 900, S = 2, M = 56;
   const FONT = '"Figtree", "Segoe UI", Roboto, Arial, sans-serif', HEAD = '"Bricolage Grotesque", "Figtree", "Segoe UI", Arial, sans-serif';
   const ink = "#0e1530", soft = "#78829f", line = "#e3e7f1", brand = "#4338ca", paper = "#f4f6fb";
@@ -28,8 +28,8 @@ export async function renderInvoiceImage(inv, company = "Finora Services") {
   // header band
   g.fillStyle = ink; g.fillRect(0, 0, W, 150);
   if (logo) g.drawImage(logo, M, 38, 76, 76);
-  text(company, M + 96, 76, `700 26px ${HEAD}`, "#fff"); text("Sales invoice", M + 96, 100, `400 15px ${FONT}`, "#aab2c8");
-  text("INVOICE", W - M, 80, `800 38px ${HEAD}`, "#fff", "right"); text(inv.id, W - M, 108, `500 17px ${FONT}`, "#aab2c8", "right");
+  text(company, M + 96, 76, `700 26px ${HEAD}`, "#fff"); text(L.sub, M + 96, 100, `400 15px ${FONT}`, "#aab2c8");
+  text(L.title, W - M, 80, `800 ${inv.kind === "bill" ? 30 : 38}px ${HEAD}`, "#fff", "right"); text(inv.id, W - M, 108, `500 17px ${FONT}`, "#aab2c8", "right");
 
   // meta
   const meta = [["Issue date", fmtDate(inv.date)], ["Due date", fmtDate(inv.dueDate)], ["Payment method", inv.paidAmount > 0 ? (inv.payments.length > 1 ? "Multiple payments" : inv.method) : "Not paid yet"]];
@@ -39,7 +39,7 @@ export async function renderInvoiceImage(inv, company = "Finora Services") {
 
   g.strokeStyle = line; g.lineWidth = 1; g.beginPath(); g.moveTo(M, 268); g.lineTo(W - M, 268); g.stroke();
   // bill to
-  text("Bill to", M, 306, `500 14px ${FONT}`, soft); text(inv.customer, M, 338, `700 26px ${HEAD}`, ink);
+  text(L.party, M, 306, `500 14px ${FONT}`, soft); text(inv.customer, M, 338, `700 26px ${HEAD}`, ink);
   let y = 338;
   if (inv.customerEmail) { y += 28; text(inv.customerEmail, M, y, `400 16px ${FONT}`, soft); }
   if (inv.customerPhone) { y += 26; text(`WhatsApp: ${prettyPhone(inv.customerPhone)}`, M, y, `400 16px ${FONT}`, soft); }
@@ -55,10 +55,10 @@ export async function renderInvoiceImage(inv, company = "Finora Services") {
   // totals
   const open = isOpen(inv), due = open ? inv.balance : 0;
   text("Subtotal", W - M - 280, ty + 156, `400 17px ${FONT}`, soft); text(money(inv.amount), W - M - 16, ty + 156, `500 17px ${FONT}`, ink, "right");
-  if (part) { text("Received", W - M - 280, ty + 190, `400 17px ${FONT}`, soft); text("- " + money(inv.paidAmount), W - M - 16, ty + 190, `500 17px ${FONT}`, ink, "right"); }
+  if (part) { text(L.received, W - M - 280, ty + 190, `400 17px ${FONT}`, soft); text("- " + money(inv.paidAmount), W - M - 16, ty + 190, `500 17px ${FONT}`, ink, "right"); }
   const by = ty + 176 + extraRow;
   g.fillStyle = ink; rr(W - M - 320, by, 320, 66, 14); g.fill();
-  text(open ? "Amount due" : inv.status === "Paid" ? "Paid in full" : "Cancelled", W - M - 300, by + 40, `500 16px ${FONT}`, "#c8cee0");
+  text(open ? L.due : inv.status === "Paid" ? L.paid : "Cancelled", W - M - 300, by + 40, `500 16px ${FONT}`, "#c8cee0");
   text(money(due || inv.amount), W - M - 20, by + 42, `700 26px ${HEAD}`, "#fff", "right");
 
   if (notes.length) { const ny = ty + 290 + extraRow; text("Notes", M, ny, `500 14px ${FONT}`, soft); notes.forEach((l, i) => text(l, M, ny + 28 + i * 26, `400 17px ${FONT}`, ink)); }

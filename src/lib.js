@@ -151,3 +151,15 @@ export function permitState(due, status = "Active") {
   return { level: "ok", days, label: `Valid · ${days} days left` };
 }
 export const permitNeedsAction = w => w.permit.level === "expired" || w.permit.level === "soon";
+
+// ---------- Bills to pay (money you owe to a person), shaped like invoices so the same screens work ----------
+export function normalizeBill(raw) {
+  const r = normalize({ id: raw.id, customer: raw.payee, customerPhone: raw.payeePhone, service: raw.title, amount: raw.amount, date: raw.date, dueDate: raw.dueDate, paidAt: raw.paidAt, status: raw.status, payments: raw.payments, paidAmount: raw.paidAmount, method: raw.method, notes: raw.notes });
+  return { ...r, kind: "bill", payeeType: raw.payeeType || "Other", category: raw.category || "Other" };
+}
+// Every payment made on a bill is money spent, so it appears in the expense lists, reports and budgets as a normal expense row.
+export const billExpenseRows = bills => bills.flatMap(b => b.payments.map(p => ({ id: `bill:${b.id}:${p.id}`, billId: b.id, title: b.service, payee: b.customer, payeeType: b.payeeType, category: b.category, amount: p.amount, date: p.date, method: p.method, notes: p.note })));
+// Wording for invoices (money coming in) and bills (money going out).
+export const docLabels = d => d?.kind === "bill"
+  ? { title: "PAYMENT SLIP", sub: "Payment to employee / seller", party: "Paid to", received: "Paid so far", due: "Balance to pay", paid: "Paid in full", method: "Not paid yet" }
+  : { title: "INVOICE", sub: "Sales invoice", party: "Bill to", received: "Received", due: "Amount due", paid: "Paid in full", method: "Not paid yet" };

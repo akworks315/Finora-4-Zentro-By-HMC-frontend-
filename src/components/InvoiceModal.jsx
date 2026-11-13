@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Download, Check, Ban, Trash2, Image as ImageIcon, Pencil, Share2, Wallet, X, BellRing } from "lucide-react";
-import { money, fmtDate, isValidPhone, prettyPhone, isOpen, siteOf, toInputDate } from "../lib";
+import { money, fmtDate, isValidPhone, prettyPhone, isOpen, siteOf, toInputDate, docLabels } from "../lib";
 import { sendInvoiceOnWhatsApp, shareInvoicePicture, canSharePicture, downloadInvoiceImage } from "../whatsapp";
 import { downloadInvoicePdf } from "../pdf";
 import { Modal, Button, Status } from "./ui";
@@ -10,6 +10,7 @@ const WhatsAppIcon = () => <svg width="17" height="17" viewBox="0 0 24 24" fill=
 
 export default function InvoiceModal({ invoice: inv, company, onClose, onMarkPaid, onCancel, onDelete, onSavePhone, onAddPayment, onRemovePayment, notice, onSendNotice, onDismissNotice, canEdit = true, canDelete = true, notify }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const L = docLabels(inv), isBill = inv.kind === "bill";
   const open = isOpen(inv);
   const due = open ? inv.balance : 0;
   const [pay, setPay] = useState({ amount: "", method: "Cash", date: toInputDate(), note: "" });
@@ -47,13 +48,13 @@ export default function InvoiceModal({ invoice: inv, company, onClose, onMarkPai
   const picture = async () => { try { await downloadInvoiceImage(inv, company); notify(`${inv.id}.png downloaded`); } catch (e) { notify(e.message, true); } };
   const download = async () => { try { await downloadInvoicePdf(inv, company); notify(`${inv.id}.pdf downloaded`); } catch (e) { notify(e.message, true); } };
 
-  return <Modal wide title="Invoice" subtitle={`${inv.id} · ${inv.customer}`} onClose={onClose}
+  return <Modal wide title={isBill ? "Payment slip" : "Invoice"} subtitle={`${inv.id} · ${inv.customer}`} onClose={onClose}
     actions={<>
       <div className="modal-actions-left">
         {confirmDelete
-          ? <><span className="confirm-text">Delete this invoice permanently?</span><Button kind="danger" onClick={() => onDelete(inv)}>Yes, delete</Button><Button kind="ghost" onClick={() => setConfirmDelete(false)}>Keep it</Button></>
+          ? <><span className="confirm-text">Delete this permanently?</span><Button kind="danger" onClick={() => onDelete(inv)}>Yes, delete</Button><Button kind="ghost" onClick={() => setConfirmDelete(false)}>Keep it</Button></>
           : <>{canDelete && <Button kind="ghost" onClick={() => setConfirmDelete(true)}><Trash2 size={15} />Delete</Button>}
-            {canEdit && inv.status !== "Cancelled" && inv.status !== "Paid" && <Button kind="ghost" onClick={() => onCancel(inv)}><Ban size={15} />Cancel invoice</Button>}</>}
+            {canEdit && inv.status !== "Cancelled" && inv.status !== "Paid" && <Button kind="ghost" onClick={() => onCancel(inv)}><Ban size={15} />{isBill ? "Cancel" : "Cancel invoice"}</Button>}</>}
       </div>
       {open && canEdit && <Button kind="outline" onClick={() => onMarkPaid(inv)} title="Record the whole remaining amount as received"><Check size={15} />{inv.paidAmount > 0 ? "Mark rest as paid" : "Mark as paid"}</Button>}
       <Button kind="outline" onClick={picture} title="Download the invoice as a picture"><ImageIcon size={15} /><span className="btn-text">Picture</span></Button>
@@ -71,7 +72,7 @@ export default function InvoiceModal({ invoice: inv, company, onClose, onMarkPai
 
     {notice && notice.id === inv.id && <div className="notice-bar" role="status">
       <BellRing size={17} />
-      <span><b>Customer not notified automatically.</b> {notice.reason} Send the update yourself, the message is ready.</span>
+      <span><b>{isBill ? "Person" : "Customer"} not notified automatically.</b> {notice.reason} Send the update yourself, the message is ready.</span>
       <Button kind="whatsapp" onClick={() => onSendNotice(notice)}><WhatsAppIcon />Send on WhatsApp</Button>
       <button className="icon-btn" onClick={onDismissNotice} aria-label="Dismiss"><X size={16} /></button>
     </div>}
@@ -83,7 +84,7 @@ export default function InvoiceModal({ invoice: inv, company, onClose, onMarkPai
       </div>
       <div className="meter pay-meter"><i style={{ width: `${Math.min(100, inv.amount ? (inv.paidAmount / inv.amount) * 100 : 0)}%` }} /></div>
       {open && canEdit && <form className="pay-form" onSubmit={submitPayment}>
-        <label>Amount received<input type="number" min="0" step="any" inputMode="decimal" value={pay.amount} onChange={e => setPay({ ...pay, amount: e.target.value })} placeholder={`up to ${Math.round(inv.balance)}`} /></label>
+        <label>{isBill ? "Amount paid" : "Amount received"}<input type="number" min="0" step="any" inputMode="decimal" value={pay.amount} onChange={e => setPay({ ...pay, amount: e.target.value })} placeholder={`up to ${Math.round(inv.balance)}`} /></label>
         <label>Method<select value={pay.method} onChange={e => setPay({ ...pay, method: e.target.value })}><option>Cash</option><option>Bank Transfer</option><option>Card</option><option>Online</option><option>Cheque</option></select></label>
         <label>Date<input type="date" value={pay.date} max={toInputDate()} onChange={e => setPay({ ...pay, date: e.target.value })} /></label>
         <label>Note <em>optional</em><input value={pay.note} onChange={e => setPay({ ...pay, note: e.target.value })} placeholder="e.g. 2nd instalment" /></label>
@@ -96,22 +97,22 @@ export default function InvoiceModal({ invoice: inv, company, onClose, onMarkPai
         <span>{fmtDate(p.date)}</span><span>{p.method}{p.note ? ` · ${p.note}` : ""}</span><b className="num">{money(p.amount)}</b>
         {canEdit && <button className="icon-btn" title="Remove this payment (entered by mistake)" aria-label="Remove payment" onClick={() => { if (window.confirm(`Remove the ${money(p.amount)} payment?`)) onRemovePayment(inv, p.id); }}><Trash2 size={14} /></button>}
       </li>)}</ul>}
-      <p className="pay-note">Each payment is saved to the database and the customer gets a WhatsApp update.</p>
+      <p className="pay-note">Each payment is saved to the database and {isBill ? "the person you pay" : "the customer"} gets a WhatsApp update.</p>
     </section>}
     <article className="paper">
       <header className="paper-head">
-        <div className="paper-brand"><Logo size={34} /><div><b>{company}</b><small>Sales invoice</small></div></div>
-        <div className="paper-title"><h3>INVOICE</h3><span>{inv.id}</span></div>
+        <div className="paper-brand"><Logo size={34} /><div><b>{company}</b><small>{L.sub}</small></div></div>
+        <div className="paper-title"><h3>{L.title}</h3><span>{inv.id}</span></div>
       </header>
 
       <div className="paper-meta">
         <div><small>Issue date</small><b>{fmtDate(inv.date)}</b></div>
         <div><small>Due date</small><b>{fmtDate(inv.dueDate)}</b></div>
-        <div><small>Payment method</small><b>{inv.paidAmount > 0 ? (inv.payments.length > 1 ? "Multiple payments" : inv.method) : "Not paid yet"}</b></div>
+        <div><small>Payment method</small><b>{inv.paidAmount > 0 ? (inv.payments.length > 1 ? "Multiple payments" : inv.method) : L.method}</b></div>
         <div><small>Status</small><Status value={inv.status} /></div>
       </div>
 
-      <div className="paper-bill"><small>Bill to</small><b>{inv.customer}</b>{inv.customerEmail && <span style={{ display: "block" }}>{inv.customerEmail}</span>}{inv.customerPhone && <span style={{ display: "block" }}>WhatsApp: {prettyPhone(inv.customerPhone)}</span>}{siteOf(inv) && <span style={{ display: "block" }}>Site: {siteOf(inv)}</span>}</div>
+      <div className="paper-bill"><small>{L.party}</small><b>{inv.customer}</b>{inv.customerEmail && <span style={{ display: "block" }}>{inv.customerEmail}</span>}{inv.customerPhone && <span style={{ display: "block" }}>WhatsApp: {prettyPhone(inv.customerPhone)}</span>}{siteOf(inv) && <span style={{ display: "block" }}>Site: {siteOf(inv)}</span>}</div>
 
       <table className="paper-lines">
         <thead><tr><th>Description</th><th className="r">Qty</th><th className="r">Amount</th></tr></thead>
@@ -120,12 +121,12 @@ export default function InvoiceModal({ invoice: inv, company, onClose, onMarkPai
 
       <div className="paper-total">
         <div><span>Subtotal</span><b className="num">{money(inv.amount)}</b></div>
-        {open && inv.paidAmount > 0 && <div><span>Received</span><b className="num">− {money(inv.paidAmount)}</b></div>}
-        <div className="grand"><span>{open ? "Amount due" : inv.status === "Paid" ? "Paid in full" : "Cancelled"}</span><b className="num">{money(due || inv.amount)}</b></div>
+        {open && inv.paidAmount > 0 && <div><span>{L.received}</span><b className="num">− {money(inv.paidAmount)}</b></div>}
+        <div className="grand"><span>{open ? L.due : inv.status === "Paid" ? L.paid : "Cancelled"}</span><b className="num">{money(due || inv.amount)}</b></div>
       </div>
 
       {inv.notes && <p className="paper-notes"><small>Notes</small>{inv.notes}</p>}
-      <footer className="paper-foot">Thank you for your business.</footer>
+      <footer className="paper-foot">{isBill ? "Thank you." : "Thank you for your business."}</footer>
       {inv.status === "Paid" && <div className="stamp">Paid</div>}
       {open && inv.paidAmount > 0 && <div className="stamp partial">Partial</div>}
     </article>

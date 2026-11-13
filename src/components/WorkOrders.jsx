@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Search, RefreshCw, Trash2, CheckCircle2, HardHat, CalendarClock, History } from "lucide-react";
+import { Search, RefreshCw, Trash2, CheckCircle2, HardHat, CalendarClock, History, Banknote } from "lucide-react";
 import { money, num, fmtDate, toInputDate, permitNeedsAction } from "../lib";
 import { Modal, Button, Empty, Segmented } from "./ui";
 
@@ -37,7 +37,7 @@ function RenewModal({ work, onClose, onRenew, onFix }) {
   </Modal>;
 }
 
-export default function WorkOrders({ works, onRenew, onFix, onStatus, onDelete, notify }) {
+export default function WorkOrders({ works, onRenew, onFix, onStatus, onDelete, onBill, notify }) {
   const [q, setQ] = useState(""), [tab, setTab] = useState("all"), [renewing, setRenewing] = useState(null), [openHist, setOpenHist] = useState(null);
   const counts = useMemo(() => ({ action: works.filter(permitNeedsAction).length, active: works.filter(w => w.status === "Active").length, done: works.filter(w => w.status !== "Active").length }), [works]);
   const shown = useMemo(() => works.filter(w => (tab === "all" || (tab === "action" && permitNeedsAction(w)) || (tab === "active" && w.status === "Active") || (tab === "done" && w.status !== "Active"))
@@ -63,6 +63,7 @@ export default function WorkOrders({ works, onRenew, onFix, onStatus, onDelete, 
               {w.permitAuthority && <small>{w.permitAuthority}</small>}</td>
             <td className="r"><div className="row-actions">
               <Button kind="outline" onClick={() => setRenewing(w)} title="Renew or update the permission"><CalendarClock size={15} />{w.permitDue ? "Renew" : "Set dates"}</Button>
+              {onBill && w.status !== "Cancelled" && <Button kind="outline" onClick={() => { if (window.confirm(`Create a bill of ${money(w.amount)} to pay ${w.employee}? You can pay it in parts and send WhatsApp updates.`)) onBill(w); }} title="Create a bill to pay this employee (part payments + WhatsApp)"><Banknote size={15} />Bill</Button>}
               {w.history.length > 0 && <Button kind="ghost" onClick={() => setOpenHist(openHist === w.id ? null : w.id)} title="Earlier permission periods"><History size={15} />{w.history.length}</Button>}
               {w.status === "Active" && <Button kind="ghost" onClick={() => onStatus(w, "Completed")} title="Mark the work as completed"><CheckCircle2 size={15} /></Button>}
               {w.status !== "Active" && <Button kind="ghost" onClick={() => onStatus(w, "Active")}>Reopen</Button>}

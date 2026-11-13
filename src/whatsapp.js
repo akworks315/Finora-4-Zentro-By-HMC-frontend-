@@ -2,6 +2,7 @@ import { money, fmtDate, waNumber, prettyPhone, isOpen, siteOf } from "./lib";
 import { renderInvoiceImage } from "./invoiceImage";
 
 export function invoiceMessage(inv, company) {
+  if (inv.kind === "bill") return [`Hello ${inv.customer},`, `Payment update from ${company} for "${inv.service}".`, `Total agreed: ${money(inv.amount)}`, `Paid so far: ${money(inv.paidAmount)}`, inv.balance > 0 ? `Remaining: ${money(inv.balance)}${inv.dueDate ? ` (due ${fmtDate(inv.dueDate)})` : ""}` : "Status: PAID IN FULL", "Thank you."].join("\n");
   const open = isOpen(inv);
   const site = siteOf(inv);
   return [`Hello ${inv.customer},`, `Here is your invoice ${inv.id} from ${company}.`, site ? `Site: ${site}` : "",
