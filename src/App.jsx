@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { LayoutDashboard, ReceiptText, Users, Settings as Cog, Plus, Menu, X, RefreshCw, AlertCircle, CheckCircle2, Sun, Moon, ArrowUpRight, Calculator, Wallet } from "lucide-react";
+import { LayoutDashboard, ReceiptText, Users, Plus, Menu, X, RefreshCw, AlertCircle, CheckCircle2, Sun, Moon, ArrowUpRight, Calculator, Wallet } from "lucide-react";
 import { apiRequest, resolveServer } from "./config";
 import { normalize, normalizeWork, normalizeBill, billExpenseRows, dateInRange, num } from "./lib";
 import { openChatWithText } from "./whatsapp";
@@ -9,20 +9,18 @@ import Sales from "./components/Sales";
 import Customers from "./components/Customers";
 import InvoiceModal from "./components/InvoiceModal";
 import SaleForm from "./components/SaleForm";
-import Settings from "./components/Settings";
 import Logo from "./components/Logo";
 import Calculators from "./components/Calculators";
 import Expenses, { budgetStatus } from "./components/Expenses";
 import Notifications from "./components/Notifications";
 
-const NAV = [["Dashboard", LayoutDashboard], ["Sales & invoices", ReceiptText], ["Customers", Users], ["Expenses", Wallet], ["Work & calculators", Calculator], ["Settings", Cog]];
+const NAV = [["Dashboard", LayoutDashboard], ["Sales & invoices", ReceiptText], ["Customers", Users], ["Expenses", Wallet], ["Work & calculators", Calculator]];
 const HEAD = {
   "Dashboard": ["Dashboard", "Your sales, money received, expenses and profit at a glance."],
   "Sales & invoices": ["Sales & invoices", "Every sale with its invoice. Open one to preview or download the PDF."],
   "Customers": ["Customers", "Who you sell to and who still owes you."],
   "Expenses": ["Expenses", "Month-by-month income, spending and profit or loss."],
-  "Work & calculators": ["Work & calculators", "Work you gave to employees (area × rate) and their working permissions."],
-  "Settings": ["Settings", "Business details shown on your invoices."]
+  "Work & calculators": ["Work & calculators", "Work you gave to employees (area × rate) and their working permissions."]
 };
 const DEFAULT_PORTFOLIO = "https://portfolio-web-psi-rosy.vercel.app/";
 
@@ -200,7 +198,6 @@ export default function App() {
           {page === "Customers" && <Customers rows={all} onFilter={name => { setSalesRange("all"); go("Sales & invoices"); setSalesQuery(name); }} />}
           {page === "Expenses" && <Expenses sales={all} expenses={expenseRows} bills={billRows} budgets={budgets} people={people} onAddBill={saveBill} onOpenBill={b => setOpenId(b.id)} onAdd={addExpense} onRemove={removeExpense} onSetLimit={setLimit} notify={notify} />}
           {page === "Work & calculators" && <Calculators works={workRows} employees={people} onSaveWork={saveWork} onRenewWork={renewWork} onWorkStatus={setWorkStatus} onDeleteWork={deleteWork} onBillWork={billFromWork} notify={notify} />}
-          {page === "Settings" && <Settings business={business} onSave={saveBusiness} />}
         </>}
       </div>
       <footer className="foot">
