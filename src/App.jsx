@@ -143,7 +143,6 @@ export default function App() {
   const saveWork = async data => { const w = await apiRequest("/works", { method: "POST", body: JSON.stringify(data) }); setWorks(l => [w, ...l]); notify("Work order saved"); };
   const body = f => ({ permitNo: f.permitNo, permitAuthority: f.permitAuthority, permitStart: f.permitStart || null, permitDue: f.permitDue, note: f.note });
   const renewWork = async (w, f) => { putWork(await apiRequest(`/works/${w.id}/renew`, { method: "POST", body: JSON.stringify(body(f)) })); notify("Permission renewed and saved"); };
-  const fixWork = async (w, f) => { const { note, ...rest } = body(f); putWork(await apiRequest(`/works/${w.id}`, { method: "PATCH", body: JSON.stringify(rest) })); notify("Permission dates updated"); };
   const setWorkStatus = async (w, status) => { try { putWork(await apiRequest(`/works/${w.id}`, { method: "PATCH", body: JSON.stringify({ status }) })); notify(status === "Active" ? "Work reopened" : "Work marked as completed"); } catch (e) { notify(e.message, true); } };
   const deleteWork = async w => { try { await apiRequest(`/works/${w.id}`, { method: "DELETE" }); setWorks(l => l.filter(x => x.id !== w.id)); notify("Work deleted"); } catch (e) { notify(e.message, true); } };
 
@@ -200,7 +199,7 @@ export default function App() {
           {page === "Sales & invoices" && <Sales key={salesQuery} initialQuery={salesQuery} rows={salesRows} range={salesRange} setRange={setSalesRange} onOpen={r => setOpenId(r.id)} onMarkPaid={markPaid} onAdd={() => setForm(true)} />}
           {page === "Customers" && <Customers rows={all} onFilter={name => { setSalesRange("all"); go("Sales & invoices"); setSalesQuery(name); }} />}
           {page === "Expenses" && <Expenses sales={all} expenses={expenseRows} bills={billRows} budgets={budgets} people={people} onAddBill={saveBill} onOpenBill={b => setOpenId(b.id)} onAdd={addExpense} onRemove={removeExpense} onSetLimit={setLimit} notify={notify} />}
-          {page === "Work & calculators" && <Calculators works={workRows} employees={people} onSaveWork={saveWork} onRenewWork={renewWork} onFixWork={fixWork} onWorkStatus={setWorkStatus} onDeleteWork={deleteWork} onBillWork={billFromWork} notify={notify} />}
+          {page === "Work & calculators" && <Calculators works={workRows} employees={people} onSaveWork={saveWork} onRenewWork={renewWork} onWorkStatus={setWorkStatus} onDeleteWork={deleteWork} onBillWork={billFromWork} notify={notify} />}
           {page === "Settings" && <Settings business={business} onSave={saveBusiness} />}
         </>}
       </div>

@@ -6,38 +6,35 @@ import { Modal, Button, Empty, Segmented } from "./ui";
 const TONE = { expired: "overdue", soon: "pending", ok: "paid", none: "cancelled", closed: "cancelled" };
 export const PermitBadge = ({ permit }) => <span className={`status status-${TONE[permit.level]}`}><i />{permit.label}</span>;
 
-function RenewModal({ work, onClose, onRenew, onFix }) {
-  const [renewal, setRenewal] = useState(true);
-  const [f, setF] = useState({ permitNo: work.permitNo, permitAuthority: work.permitAuthority, permitStart: toInputDate(work.permitDue && renewalDefault(work)), permitDue: "", note: "" });
+function RenewModal({ work, onClose, onRenew }) {
+  // New period starts when the current one ends (or today if it already ended).
+  const start = work.permitDue && work.permitDue > new Date() ? work.permitDue : new Date();
+  const [f, setF] = useState({ permitNo: work.permitNo, permitAuthority: work.permitAuthority, permitStart: toInputDate(start), permitDue: "", note: "" });
   const [busy, setBusy] = useState(false), [err, setErr] = useState("");
-  function renewalDefault(w) { const d = new Date(); return w.permitDue && w.permitDue > d ? w.permitDue : d; }
   const set = (k, v) => setF(x => ({ ...x, [k]: v }));
-  // when correcting a mistake, start from the saved dates
-  const switchMode = v => { setRenewal(v); setF(x => v ? { ...x, permitStart: toInputDate(renewalDefault(work)), permitDue: "" } : { ...x, permitStart: work.permitStart ? toInputDate(work.permitStart) : "", permitDue: work.permitDue ? toInputDate(work.permitDue) : "" }); };
   const submit = async e => {
     e.preventDefault(); setErr("");
-    if (!f.permitDue) return setErr("Enter the permission due date.");
+    if (!f.permitDue) return setErr("Enter the new due date.");
     if (f.permitStart && f.permitDue < f.permitStart) return setErr("Due date cannot be before the start date.");
     setBusy(true);
-    try { await (renewal ? onRenew(work, f) : onFix(work, f)); onClose(); }
+    try { await onRenew(work, f); onClose(); }
     catch (ex) { setErr(ex.message || "Could not save."); setBusy(false); }
   };
-  return <Modal title="Working permission" subtitle={`${work.employee} · ${work.site}`} onClose={onClose}
-    actions={<><Button kind="ghost" onClick={onClose}>Cancel</Button><Button form="renew-form" type="submit" disabled={busy}><RefreshCw size={15} />{busy ? "Saving…" : renewal ? "Save renewal" : "Save changes"}</Button></>}>
+  return <Modal title="Renew permission" subtitle={`${work.employee} · ${work.site}`} onClose={onClose}
+    actions={<><Button kind="ghost" onClick={onClose}>Cancel</Button><Button form="renew-form" type="submit" disabled={busy}><RefreshCw size={15} />{busy ? "Saving…" : "Save renewal"}</Button></>}>
     <form id="renew-form" className="form" onSubmit={submit}>
-      <div className="span-2"><Segmented label="Mode" value={renewal ? "renew" : "fix"} onChange={v => switchMode(v === "renew")} options={[["renew", "Renewed permission"], ["fix", "Correct the saved dates"]]} /></div>
-      <p className="hint span-2">{renewal ? "The old period is kept in the history and the new dates become current." : "Use this only to fix a mistake in the saved dates."}{work.permitDue && <> Current: <b>{fmtDate(work.permitStart)} → {fmtDate(work.permitDue)}</b>.</>}</p>
+      <p className="hint span-2">{work.permitDue ? <>Current permission: <b>{fmtDate(work.permitStart)} → {fmtDate(work.permitDue)}</b>. </> : null}The old period is kept in the history and the new dates become current.</p>
       <label>Permission no.<input value={f.permitNo} onChange={e => set("permitNo", e.target.value)} placeholder="e.g. BCA-2026-1182" /></label>
       <label>Issued by<input value={f.permitAuthority} onChange={e => set("permitAuthority", e.target.value)} placeholder="e.g. Cantonment Board / SBCA" /></label>
-      <label>Start date<input type="date" value={f.permitStart} onChange={e => set("permitStart", e.target.value)} /></label>
-      <label>Due date (expires)<input type="date" value={f.permitDue} min={f.permitStart || undefined} onChange={e => set("permitDue", e.target.value)} autoFocus /></label>
-      {renewal && <label className="span-2"><span>Note <em>optional</em></span><input value={f.note} onChange={e => set("note", e.target.value)} placeholder="e.g. renewed for 3 months, fee paid" /></label>}
+      <label>New start date<input type="date" value={f.permitStart} onChange={e => set("permitStart", e.target.value)} /></label>
+      <label>New due date (expires)<input type="date" value={f.permitDue} min={f.permitStart || undefined} onChange={e => set("permitDue", e.target.value)} autoFocus /></label>
+      <label className="span-2"><span>Note <em>optional</em></span><input value={f.note} onChange={e => set("note", e.target.value)} placeholder="e.g. renewed for 3 months, fee paid" /></label>
       {err && <div className="form-error span-2" role="alert">{err}</div>}
     </form>
   </Modal>;
 }
 
-export default function WorkOrders({ works, onRenew, onFix, onStatus, onDelete, onBill, notify }) {
+export default function WorkOrders({ works, onRenew, onStatus, onDelete, onBill, notify }) {
   const [q, setQ] = useState(""), [tab, setTab] = useState("all"), [renewing, setRenewing] = useState(null), [openHist, setOpenHist] = useState(null);
   const counts = useMemo(() => ({ action: works.filter(permitNeedsAction).length, active: works.filter(w => w.status === "Active").length, done: works.filter(w => w.status !== "Active").length }), [works]);
   const shown = useMemo(() => works.filter(w => (tab === "all" || (tab === "action" && permitNeedsAction(w)) || (tab === "active" && w.status === "Active") || (tab === "done" && w.status !== "Active"))
@@ -72,6 +69,6 @@ export default function WorkOrders({ works, onRenew, onFix, onStatus, onDelete, 
           </tr>
           {openHist === w.id && <tr className="hist-row"><td colSpan={5}><b>Earlier permissions</b><ul className="pay-list">{w.history.map(h => <li key={h.id}><span>{h.permitNo || "—"}</span><span>{fmtDate(h.start)} → {fmtDate(h.due)}{h.note ? ` · ${h.note}` : ""}</span><span>Renewed {fmtDate(h.renewedAt)}</span></li>)}</ul></td></tr>}
         </React.Fragment>)}</tbody></table></div>}
-    {renewing && <RenewModal work={renewing} onClose={() => setRenewing(null)} onRenew={onRenew} onFix={onFix} />}
+    {renewing && <RenewModal work={renewing} onClose={() => setRenewing(null)} onRenew={onRenew} />}
   </section>;
 }
