@@ -51,13 +51,13 @@ export default function WorkOrders({ works, onRenew, onFix, onStatus, onDelete, 
       <div className="toolbar-right"><label className="search"><Search size={16} /><input placeholder="Search employee, site, permit no." value={q} onChange={e => setQ(e.target.value)} /></label></div>
     </div>
     {shown.length === 0 ? <Empty title={works.length ? "Nothing matches" : "No work saved yet"} text={works.length ? "Try another filter or search." : "Use the calculator above and press “Save work order”."} /> :
-      <div className="table-wrap"><table>
+      <div className="table-wrap"><table className="work-table">
         <thead><tr><th>Employee / site</th><th className="r">Area × rate</th><th className="r">Amount</th><th>Permission</th><th className="r">Actions</th></tr></thead>
         <tbody>{shown.map(w => <React.Fragment key={w.id}>
           <tr>
             <td><div className="who"><span className="avatar"><HardHat size={15} /></span><div><b>{w.employee}</b><small>{w.site}</small>{w.status !== "Active" && <small>{w.status}</small>}</div></div></td>
-            <td className="r num">{num(w.areaSqft)} sq ft<small>× {num(w.ratePerSqft)}</small></td>
-            <td className="r num"><b>{money(w.amount)}</b></td>
+            <td className="r num" data-label="Area × rate">{num(w.areaSqft)} sq ft<small>× {num(w.ratePerSqft)}</small></td>
+            <td className="r num" data-label="Amount"><b>{money(w.amount)}</b></td>
             <td><PermitBadge permit={w.permit} />
               <small>{w.permitNo ? `${w.permitNo} · ` : ""}{w.permitDue ? `${fmtDate(w.permitStart)} → ${fmtDate(w.permitDue)}` : "Add permission dates"}</small>
               {w.permitAuthority && <small>{w.permitAuthority}</small>}</td>

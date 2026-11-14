@@ -21,7 +21,7 @@ const HEAD = {
   "Sales & invoices": ["Sales & invoices", "Every sale with its invoice. Open one to preview or download the PDF."],
   "Customers": ["Customers", "Who you sell to and who still owes you."],
   "Expenses": ["Expenses", "Month-by-month income, spending and profit or loss."],
-  "Work & calculators": ["Work & calculators", "Work you gave to employees (area × rate), their working permissions, and loan / investment calculators."],
+  "Work & calculators": ["Work & calculators", "Work you gave to employees (area × rate) and their working permissions."],
   "Settings": ["Settings", "Business details shown on your invoices."]
 };
 const DEFAULT_PORTFOLIO = "https://portfolio-web-psi-rosy.vercel.app/";

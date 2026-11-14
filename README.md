@@ -28,7 +28,7 @@ Needs backend **v4** (`/api/health` shows the version); an older backend shows a
 - **Part payments**: open an invoice > *Payments* > record any amount. Status goes Pending → **Partial** → **Paid** automatically; the Paid stamp appears when fully received. Income reports count each payment in the month it was received.
 - **WhatsApp update to the customer** after every payment / invoice change (automatic if the backend has the WhatsApp API keys, otherwise one tap on *Send on WhatsApp*).
 - **Expenses**: *Paid to* (employee / seller) with type, a **search box** (name, title, category) and a **Spending by person** table with the total spent on each.
-- **Work & calculators**: the currency converter is removed. New **construction calculator**: rate per sq ft × area = amount to pay the employee, saved as a work order.
+- **Work & calculators**: the currency, loan (EMI) and investment calculators are removed. New **construction calculator**: rate per sq ft × area = amount to pay the employee, saved as a work order.
 - **Working permissions**: permission no., start and due date per work. Permissions expiring this month (or within 30 days) or already expired show in the dashboard follow-up, in the bell alerts and on the Work page, with a **Renew** form that keeps the old dates in history.
 
 - **Bills to pay** (Expenses > Bills to pay): money you owe to an employee / seller, paid in parts like invoices, with a payment slip (PDF / picture) and WhatsApp updates to that person. Every payment counts as an expense. A work order can be turned into a bill with the *Bill* button.
