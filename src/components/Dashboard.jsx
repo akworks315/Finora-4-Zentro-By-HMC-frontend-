@@ -110,7 +110,7 @@ export default function Dashboard({ rows, allRows, expenses, works = [], range, 
     {permitAlerts.length > 0 && <section className="panel permit-alert">
       <div className="panel-head"><div><h3><ShieldAlert size={18} /> Working permissions to renew</h3><p>Expired or expiring this month. Renew them so work can continue legally.</p></div><Button kind="outline" onClick={goWork}>Open work &amp; permissions</Button></div>
       <ul className="followup">{permitAlerts.slice(0, 6).map(w => <li key={w.id}>
-        <button className="followup-main" onClick={goWork}><b>{w.employee}</b><span>{w.site}{w.permitNo ? ` · ${w.permitNo}` : ""} · due {fmtDate(w.permitDue)}</span></button>
+        <button className="followup-main" onClick={goWork}><b>{w.site}</b><span>{[w.employee, w.permitNo, `due ${fmtDate(w.permitDue)}`].filter(Boolean).join(" · ")}</span></button>
         <PermitBadge permit={w.permit} />
       </li>)}</ul>
     </section>}

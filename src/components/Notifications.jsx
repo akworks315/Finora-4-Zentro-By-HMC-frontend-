@@ -14,7 +14,7 @@ export default function Notifications({ invoices, budgets, works = [], onOpenInv
   const items = [
     ...invoices.filter(r => r.status === "Overdue").map(r => ({ key: r.id, tone: "bad", title: `${r.id} is overdue`, text: `${r.customer} · ${money(r.balance)} left · ${dueText(r)}`, go: () => onOpenInvoice(r) })),
     ...invoices.filter(soon).map(r => ({ key: r.id, tone: "warn", title: `${r.id} due soon`, text: `${r.customer} · ${money(r.balance)} left · ${dueText(r)}`, go: () => onOpenInvoice(r) })),
-    ...works.filter(permitNeedsAction).map(w => ({ key: "w" + w.id, tone: w.permit.level === "expired" ? "bad" : "warn", title: `Permission: ${w.permit.label.toLowerCase()}`, text: `${w.employee} · ${w.site} · due ${fmtDate(w.permitDue)}`, go: goWork })),
+    ...works.filter(permitNeedsAction).map(w => ({ key: "w" + w.id, tone: w.permit.level === "expired" ? "bad" : "warn", title: `Permission: ${w.permit.label.toLowerCase()}`, text: `${[w.site, w.employee].filter(Boolean).join(" · ")} · due ${fmtDate(w.permitDue)}`, go: goWork })),
     ...budgets.filter(b => b.level === "over" || b.level === "warn").map(b => ({ key: "b" + b.category, tone: b.level === "over" ? "bad" : "warn",
       title: b.level === "over" ? `${b.category} budget exceeded` : `${b.category} budget at ${Math.round(b.pct * 100)}%`, text: `${money(b.spent)} of ${money(b.limit)} this month`, go: goExpenses }))
   ];

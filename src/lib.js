@@ -95,7 +95,7 @@ export function dueText(row) {
 
 export function toCsv(rows) {
   const esc = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const head = ["Invoice", "Customer", "Email", "WhatsApp", "House", "Address", "Service", "Issue date", "Due date", "Amount (PKR)", "Received (PKR)", "Remaining (PKR)", "Status", "Method", "Notes"];
+  const head = ["Invoice", "Customer", "Email", "WhatsApp", "House", "Address", "Service", "Issue date", "Due date", "Amount (PKR)", "Received (PKR)", "Remaining (PKR)", "Status", "Method", "Description"];
   const body = rows.map(r => [r.id, r.customer, r.customerEmail, r.customerPhone, r.house, r.address, r.service, fmtDate(r.date), fmtDate(r.dueDate), r.amount, r.paidAmount, r.balance, r.status, r.method, r.notes]);
   return [head, ...body].map(line => line.map(esc).join(",")).join("\n");
 }

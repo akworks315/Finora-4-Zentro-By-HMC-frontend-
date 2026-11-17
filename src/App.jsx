@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { LayoutDashboard, ReceiptText, Users, Plus, Menu, X, RefreshCw, AlertCircle, CheckCircle2, Sun, Moon, ArrowUpRight, Calculator, Wallet } from "lucide-react";
 import { apiRequest, resolveServer } from "./config";
-import { normalize, normalizeWork, normalizeBill, billExpenseRows, dateInRange, num } from "./lib";
+import { normalize, normalizeWork, normalizeBill, billExpenseRows, dateInRange, num, permitNeedsAction } from "./lib";
 import { openChatWithText } from "./whatsapp";
 import { Button, Clock } from "./components/ui";
 import Dashboard from "./components/Dashboard";
@@ -11,17 +11,19 @@ import InvoiceModal from "./components/InvoiceModal";
 import SaleForm from "./components/SaleForm";
 import Logo from "./components/Logo";
 import Calculators from "./components/Calculators";
-import Expenses, { budgetStatus } from "./components/Expenses";
+import Expenses, { budgetStatus, DEFAULT_CATEGORIES } from "./components/Expenses";
 import Notifications from "./components/Notifications";
 
-const NAV = [["Dashboard", LayoutDashboard], ["Sales & invoices", ReceiptText], ["Customers", Users], ["Expenses", Wallet], ["Work & calculators", Calculator]];
+const NAV = [["Dashboard", LayoutDashboard], ["Sales & invoices", ReceiptText], ["Customers", Users], ["Expenses", Wallet], ["Work & permissions", Calculator]];
 const HEAD = {
   "Dashboard": ["Dashboard", "Your sales, money received, expenses and profit at a glance."],
   "Sales & invoices": ["Sales & invoices", "Every sale with its invoice. Open one to preview or download the PDF."],
   "Customers": ["Customers", "Who you sell to and who still owes you."],
   "Expenses": ["Expenses", "Month-by-month income, spending and profit or loss."],
-  "Work & calculators": ["Work & calculators", "Work you gave to employees (area × rate) and their working permissions."]
+  "Work & permissions": ["Work & permissions", "Working permission for each area, and the work given to employees. Renew before it expires."]
 };
+// Short names for the phone tab bar (like WhatsApp: icon + small label at the bottom).
+const TAB_LABEL = { "Dashboard": "Home", "Sales & invoices": "Sales", "Customers": "Customers", "Expenses": "Expenses", "Work & permissions": "Work" };
 const DEFAULT_PORTFOLIO = "https://portfolio-web-psi-rosy.vercel.app/";
 
 export default function App() {
@@ -31,7 +33,9 @@ export default function App() {
   const [expenses, setExpenses] = useState([]);
   const [budgets, setBudgets] = useState({});
   const [works, setWorks] = useState([]);
-  const [payables, setPayables] = useState([]);   // bills you owe to employees / sellers
+  const [payables, setPayables] = useState([]);
+  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);   // expense categories = profiles (built-in + your own)
+  const [navTick, setNavTick] = useState(0);   // bills you owe to employees / sellers
   const [notice, setNotice] = useState(null);   // WhatsApp update the server could not send by itself
   const [business, setBusiness] = useState({ businessName: "Finora Services", portfolio: "" });
   const [loading, setLoading] = useState(true);
@@ -59,9 +63,9 @@ export default function App() {
     setLoading(true); setError("");
     try {
       setServer(await resolveServer(true));
-      const [sales, exp, bud, biz, wrk, bills] = await Promise.all([apiRequest("/sales"), apiRequest("/expenses"), apiRequest("/budgets"), apiRequest("/settings"), apiRequest("/works"), apiRequest("/payables")]);
+      const [sales, exp, bud, biz, wrk, bills, cats] = await Promise.all([apiRequest("/sales"), apiRequest("/expenses"), apiRequest("/budgets"), apiRequest("/settings"), apiRequest("/works"), apiRequest("/payables"), apiRequest("/categories")]);
       if (!Array.isArray(sales) || !Array.isArray(exp) || !Array.isArray(wrk) || !Array.isArray(bills)) throw new Error("The server returned unexpected data.");
-      setRaw(sales); setWorks(wrk); setPayables(bills); setExpenses(exp); setBudgets(Object.fromEntries(bud.map(b => [b.category, b.limit]))); setBusiness(biz); setLoaded(true);
+      setRaw(sales); setWorks(wrk); setPayables(bills); if (Array.isArray(cats) && cats.length) setCategories(cats); setExpenses(exp); setBudgets(Object.fromEntries(bud.map(b => [b.category, b.limit]))); setBusiness(biz); setLoaded(true);
     } catch (e) { setError(e.message || "Could not load your data."); }
     finally { setLoading(false); }
   }, []);
@@ -82,7 +86,7 @@ export default function App() {
   const services = useMemo(() => [...new Set(all.map(r => r.service))].filter(Boolean), [all]);
   const workRows = useMemo(() => works.map(normalizeWork), [works]);
   const people = useMemo(() => [...new Set(workRows.map(w => w.employee).filter(Boolean))], [workRows]);
-  const budgetLevels = useMemo(() => budgetStatus(expenseRows, budgets), [expenseRows, budgets]);
+  const budgetLevels = useMemo(() => budgetStatus(expenseRows, budgets, categories), [expenseRows, budgets, categories]);
 
   const replace = useCallback((id, record) => setRaw(list => list.map(r => r.id === id ? record : r)), []);
 
@@ -129,7 +133,7 @@ export default function App() {
   // A bill = money you have to pay to a person (can be paid in parts).
   const saveBill = async data => {
     const b = await apiRequest("/payables", { method: "POST", body: JSON.stringify(data) });
-    setPayables(l => [b, ...l]); setOpenId(b.id); notify(`Bill for ${b.payee} saved`);
+    setPayables(l => [b, ...l]); touchCategory(b.category); setOpenId(b.id); notify(`Bill for ${b.payee} saved`);
   };
   const billFromWork = async w => {
     try { await saveBill({ payee: w.employee, payeePhone: w.employeePhone, payeeType: "Employee", category: "Labour", title: `${w.site} (${num(w.areaSqft)} sq ft × ${num(w.ratePerSqft)})`, amount: w.amount }); }
@@ -144,18 +148,20 @@ export default function App() {
   const setWorkStatus = async (w, status) => { try { putWork(await apiRequest(`/works/${w.id}`, { method: "PATCH", body: JSON.stringify({ status }) })); notify(status === "Active" ? "Work reopened" : "Work marked as completed"); } catch (e) { notify(e.message, true); } };
   const deleteWork = async w => { try { await apiRequest(`/works/${w.id}`, { method: "DELETE" }); setWorks(l => l.filter(x => x.id !== w.id)); notify("Work deleted"); } catch (e) { notify(e.message, true); } };
 
-  const addExpense = async data => { const e = await apiRequest("/expenses", { method: "POST", body: JSON.stringify(data) }); setExpenses(l => [e, ...l]); };
+  const touchCategory = name => name && setCategories(l => l.some(c => c.toLowerCase() === name.toLowerCase()) ? l : [...l, name]);
+  const addExpense = async data => { const e = await apiRequest("/expenses", { method: "POST", body: JSON.stringify(data) }); setExpenses(l => [e, ...l]); touchCategory(e.category); };
   const removeExpense = async id => {
     if (String(id).startsWith("bill:")) { const [, billId, payId] = id.split(":"); const bill = billRows.find(b => b.id === billId); if (bill) await removePayment(bill, payId); return; }   // a payment made on a bill
     await apiRequest(`/expenses/${id}`, { method: "DELETE" }); setExpenses(l => l.filter(x => x.id !== id));
   };
   const setLimit = async (category, limit) => { await apiRequest(`/budgets/${encodeURIComponent(category)}`, { method: "PUT", body: JSON.stringify({ limit }) }); setBudgets(b => ({ ...b, [category]: limit })); };
+  const addCategory = async name => { const r = await apiRequest("/categories", { method: "POST", body: JSON.stringify({ name }) }); setCategories(l => l.some(c => c.toLowerCase() === r.name.toLowerCase()) ? l : [...l, r.name]); notify(`Profile “${r.name}” created`); };
   const saveBusiness = async changes => {
     try { setBusiness(await apiRequest("/settings", { method: "PUT", body: JSON.stringify(changes) })); notify("Saved"); }
     catch (e) { notify(e.message, true); }
   };
 
-  const go = p => { setPage(p); setSalesQuery(""); setOpenId(null); setDrawer(false); window.scrollTo(0, 0); };
+  const go = p => { setNavTick(t => t + 1); setPage(p); setSalesQuery(""); setOpenId(null); setDrawer(false); window.scrollTo(0, 0); };
   const company = business.businessName || "Finora Services";
   const [title, sub] = HEAD[page];
   const online = loaded && !error;
@@ -176,15 +182,16 @@ export default function App() {
       <header className="top">
         <button className="icon-btn burger" onClick={() => setDrawer(true)} aria-label="Open menu"><Menu size={20} /></button>
         <Clock />
+        <h2 className="top-title">{TAB_LABEL[page]}</h2>
         <div className="top-actions">
           <button className="icon-btn theme-toggle" onClick={() => setTheme(t => t === "dark" ? "light" : "dark")} aria-label={theme === "dark" ? "Switch to day mode" : "Switch to night mode"} title={theme === "dark" ? "Day mode" : "Night mode"}><Sun className="sun" size={18} /><Moon className="moon" size={17} /></button>
-          <Notifications invoices={all} budgets={budgetLevels} works={workRows} onOpenInvoice={r => setOpenId(r.id)} goExpenses={() => go("Expenses")} goWork={() => go("Work & calculators")} />
+          <Notifications invoices={all} budgets={budgetLevels} works={workRows} onOpenInvoice={r => setOpenId(r.id)} goExpenses={() => go("Expenses")} goWork={() => go("Work & permissions")} />
           <button className="icon-btn" onClick={load} aria-label="Refresh data" title="Refresh"><RefreshCw size={17} className={loading ? "spin" : ""} /></button>
-          <Button onClick={() => setForm(true)} disabled={!loaded}><Plus size={16} /><span className="btn-text">New sale</span></Button>
+          <Button className="new-sale" onClick={() => setForm(true)} disabled={!loaded}><Plus size={16} /><span className="btn-text">New sale</span></Button>
         </div>
       </header>
 
-      <div className="content enter" key={page}>
+      <div className="content enter" key={`${page}-${navTick}`}>
         {error && <div className="banner bad" role="alert"><AlertCircle size={16} /><span>{error}</span><Button kind="outline" onClick={load}>Try again</Button></div>}
 
         <div className="page-head">
@@ -193,11 +200,11 @@ export default function App() {
 
         {!loaded && !error && <div className="panel loading-card"><RefreshCw className="spin" size={20} /><b>Loading your data…</b></div>}
         {loaded && <>
-          {page === "Dashboard" && <Dashboard rows={dashRows} allRows={all} expenses={expenseRows} works={workRows} goWork={() => go("Work & calculators")} range={dashRange} setRange={setDashRange} onOpen={r => setOpenId(r.id)} onMarkPaid={markPaid} goSales={() => go("Sales & invoices")} goExpenses={() => go("Expenses")} />}
+          {page === "Dashboard" && <Dashboard rows={dashRows} allRows={all} expenses={expenseRows} works={workRows} goWork={() => go("Work & permissions")} range={dashRange} setRange={setDashRange} onOpen={r => setOpenId(r.id)} onMarkPaid={markPaid} goSales={() => go("Sales & invoices")} goExpenses={() => go("Expenses")} />}
           {page === "Sales & invoices" && <Sales key={salesQuery} initialQuery={salesQuery} rows={salesRows} range={salesRange} setRange={setSalesRange} onOpen={r => setOpenId(r.id)} onMarkPaid={markPaid} onAdd={() => setForm(true)} />}
-          {page === "Customers" && <Customers rows={all} onFilter={name => { setSalesRange("all"); go("Sales & invoices"); setSalesQuery(name); }} />}
-          {page === "Expenses" && <Expenses sales={all} expenses={expenseRows} bills={billRows} budgets={budgets} people={people} onAddBill={saveBill} onOpenBill={b => setOpenId(b.id)} onAdd={addExpense} onRemove={removeExpense} onSetLimit={setLimit} notify={notify} />}
-          {page === "Work & calculators" && <Calculators works={workRows} employees={people} onSaveWork={saveWork} onRenewWork={renewWork} onWorkStatus={setWorkStatus} onDeleteWork={deleteWork} onBillWork={billFromWork} notify={notify} />}
+          {page === "Customers" && <Customers rows={all} onOpen={r => setOpenId(r.id)} />}
+          {page === "Expenses" && <Expenses sales={all} expenses={expenseRows} bills={billRows} budgets={budgets} people={people} categories={categories} onAddCategory={addCategory} onAddBill={saveBill} onOpenBill={b => setOpenId(b.id)} onAdd={addExpense} onRemove={removeExpense} onSetLimit={setLimit} notify={notify} />}
+          {page === "Work & permissions" && <Calculators works={workRows} employees={people} onSaveWork={saveWork} onRenewWork={renewWork} onWorkStatus={setWorkStatus} onDeleteWork={deleteWork} onBillWork={billFromWork} notify={notify} />}
         </>}
       </div>
       <footer className="foot">
@@ -205,6 +212,15 @@ export default function App() {
         <a href={business.portfolio || DEFAULT_PORTFOLIO} target="_blank" rel="noopener noreferrer">Visit portfolio <ArrowUpRight size={15} /></a>
       </footer>
     </main>
+
+
+    <nav className="tabbar" aria-label="Main">
+      {NAV.map(([name, Icon]) => { const n = name === "Sales & invoices" ? all.filter(r => r.status === "Overdue").length : name === "Work & permissions" ? workRows.filter(permitNeedsAction).length : 0;
+        return <button key={name} className={page === name ? "on" : ""} onClick={() => go(name)} aria-current={page === name ? "page" : undefined}>
+          <span className="ti"><Icon size={21} strokeWidth={page === name ? 2.4 : 1.9} /></span>{TAB_LABEL[name]}{n > 0 && <span className="tab-badge">{n > 9 ? "9+" : n}</span>}
+        </button>; })}
+    </nav>
+    {loaded && ["Dashboard", "Sales & invoices", "Customers"].includes(page) && <button className="fab" onClick={() => setForm(true)} aria-label="New sale"><Plus size={24} /></button>}
 
     {open && <InvoiceModal invoice={open} company={company} onClose={() => setOpenId(null)} onMarkPaid={markPaid} onCancel={cancel} onDelete={remove} onSavePhone={savePhone} onAddPayment={addPayment} onRemovePayment={removePayment} notice={notice} onSendNotice={sendNotice} onDismissNotice={() => setNotice(null)} notify={notify} />}
     {form && <SaleForm services={services} customers={customers} onClose={() => setForm(false)} onSave={save} />}
