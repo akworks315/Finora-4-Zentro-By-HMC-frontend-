@@ -142,7 +142,7 @@ export default function Dashboard({ rows, allRows, expenses, works = [], range, 
               <span className={r.daysLate ? "late" : ""}>{r.id} · {dueText(r)}{r.paidAmount > 0 ? ` · received ${money(r.paidAmount)}` : ""}</span>
             </button>
             <b className="num">{money(r.balance)}</b>
-            <Button kind="ghost" onClick={() => onMarkPaid(r)} title="Mark the remaining amount as paid"><Check size={15} />Paid</Button>
+            <Button kind="success" onClick={() => onMarkPaid(r)} title="Mark the remaining amount as paid"><Check size={15} />Paid</Button>
           </li>)}</ul>}
       </section>
     </div>

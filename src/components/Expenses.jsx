@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
-import { Plus, Trash2, Download, ChevronDown, ChevronUp, ChevronRight, FolderPlus, Wallet, TrendingUp, TrendingDown, HandCoins, Receipt, Percent, Search, X, User } from "lucide-react";
+import { Plus, Trash2, Download, ChevronDown, ChevronUp, ChevronRight, FolderPlus, Settings2, Check, Wallet, TrendingUp, TrendingDown, HandCoins, Receipt, Percent, Search, X, User } from "lucide-react";
 import { isValidPhone, isOpen, money, fmtDate, toInputDate, toLocalDay, downloadText, monthlyReport, expenseDate, paymentEvents, MONTHS_LONG } from "../lib";
 import { Button, Empty, Segmented, Status, Modal } from "./ui";
 import { Profile } from "./Profile";
@@ -33,12 +33,12 @@ const personRows = list => { const m = new Map(); list.forEach(r => { const k = 
   return [["Person", "Type", "Payments", "Total spent (PKR)"], ...[...m.values()].sort((a, b) => b.sum - a.sum).map(p => [p.name, p.type, p.count, p.sum])]; };
 
 // Choose a category / profile, or create a new one (Home, Office, Site A...).
-function CategoryPicker({ value, onChange, categories, label = "Category / profile" }) {
+function CategoryPicker({ value, onChange, categories, label = "Profile" }) {
   const [adding, setAdding] = useState(false), [name, setName] = useState("");
   const options = mergeCategories(categories, value);
   const confirm = () => { const n = name.trim(); if (!n) return setAdding(false); const known = options.find(o => o.toLowerCase() === n.toLowerCase()); onChange(known || n.slice(0, 40)); setName(""); setAdding(false); };
-  if (adding) return <label>{label}<span className="cat-add"><input autoFocus value={name} maxLength={40} placeholder="e.g. Home, Office, Site A" onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); confirm(); } }} /><Button type="button" onClick={confirm}>Add</Button><Button type="button" kind="ghost" onClick={() => setAdding(false)}>Cancel</Button></span></label>;
-  return <label>{label}<select value={value} onChange={e => e.target.value === "__new" ? setAdding(true) : onChange(e.target.value)}>{options.map(c => <option key={c}>{c}</option>)}<option value="__new">＋ New profile…</option></select></label>;
+  if (adding) return <label>{label} <em>new profile name</em><span className="cat-add"><input autoFocus value={name} maxLength={40} placeholder="e.g. Home, Office, Site A" onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); confirm(); } }} /><Button type="button" onClick={confirm}>Add</Button><Button type="button" kind="ghost" onClick={() => setAdding(false)}>Cancel</Button></span></label>;
+  return <label>{label} <em>which profile this goes to</em><select value={value} onChange={e => e.target.value === "__new" ? setAdding(true) : onChange(e.target.value)}>{options.map(c => <option key={c}>{c}</option>)}<option value="__new">＋ New profile…</option></select></label>;
 }
 
 function Tip({ active, payload, label }) {
@@ -127,8 +127,8 @@ function Report({ sales, expenses }) {
 }
 
 // Pop-up form for a new expense (opened by the "Add expense" button).
-function NewExpenseModal({ names, categories, onClose, onSave }) {
-  const [f, setF] = useState({ title: "", payee: "", payeeType: "Employee", category: "Other", amount: "", date: toInputDate(), method: "Cash", notes: "" });
+function NewExpenseModal({ names, categories, initialCategory = "Other", onClose, onSave }) {
+  const [f, setF] = useState({ title: "", payee: "", payeeType: "Employee", category: initialCategory, amount: "", date: toInputDate(), method: "Cash", notes: "" });
   const [busy, setBusy] = useState(false), [err, setErr] = useState("");
   const set = (k, v) => setF(x => ({ ...x, [k]: v }));
   const submit = async e => {
@@ -139,15 +139,15 @@ function NewExpenseModal({ names, categories, onClose, onSave }) {
     try { await onSave({ ...f, title: f.title.trim(), payee: f.payee.trim(), amount: Number(f.amount) }); onClose(); }
     catch (ex) { setErr(ex.message || "Could not save."); setBusy(false); }
   };
-  return <Modal title="Add an expense" subtitle="Saved to your database and counted in that month’s report." onClose={onClose}
+  return <Modal title="Add an expense" subtitle="Choose the profile first, then fill in the details." onClose={onClose}
     actions={<><Button kind="ghost" onClick={onClose}>Cancel</Button><Button form="new-exp-form" type="submit" disabled={busy}><Plus size={15} />{busy ? "Saving…" : "Add expense"}</Button></>}>
     <form id="new-exp-form" className="form" onSubmit={submit}>
+      <div className="span-2 pick-profile"><CategoryPicker value={f.category} onChange={v => set("category", v)} categories={categories} /></div>
       <label>What for<input value={f.title} onChange={e => set("title", e.target.value)} placeholder="e.g. Labour for plaster work" autoFocus /></label>
       <label>Amount (Rs)<input type="number" min="0" step="any" inputMode="decimal" value={f.amount} onChange={e => set("amount", e.target.value)} /></label>
       <label>Paid to <em>employee / seller name</em><input list="new-exp-people" value={f.payee} onChange={e => set("payee", e.target.value)} placeholder="e.g. Ali Raza" /></label>
       <datalist id="new-exp-people">{names.map(n => <option key={n} value={n} />)}</datalist>
       <label>Person is a<select value={f.payeeType} onChange={e => set("payeeType", e.target.value)}>{PAYEE_TYPES.map(c => <option key={c}>{c}</option>)}</select></label>
-      <CategoryPicker value={f.category} onChange={v => set("category", v)} categories={categories} />
       <label>Date<input type="date" value={f.date} onChange={e => set("date", e.target.value)} /></label>
       <label>Paid by<select value={f.method} onChange={e => set("method", e.target.value)}><option>Cash</option><option>Bank Transfer</option><option>Card</option><option>Online</option><option>Cheque</option></select></label>
       <label className="span-2"><span>Description <em>optional</em></span><textarea rows="2" value={f.notes} onChange={e => set("notes", e.target.value)} placeholder="Extra details: what was done, receipt no., agreement…" /></label>
@@ -233,7 +233,7 @@ function Entries({ expenses, budgets, people, categories, onOpenProfile, onAdd, 
       {shown.length === 0 ? <Empty title={rows.length ? "No expenses match" : "No expenses yet"} text={rows.length ? "Try another name or month." : "Record spending above to track it against your income."} /> :
         <div className="table-wrap"><table><thead><tr><th>Date</th><th>Paid to</th><th>Title</th><th>Category</th><th className="r">Amount</th><th className="r"><span className="sr">Delete</span></th></tr></thead>
           <tbody>{(q || allRows ? shown : shown.slice(0, 8)).map(r => <tr key={r.id}><td>{fmtDate(r.d)}</td><td>{r.billId && <small>Bill payment</small>}{r.payee ? <><b className="link-name" onClick={() => setQ(r.payee)}>{r.payee}</b><small>{r.payeeType}</small></> : "—"}</td><td><b>{r.title}</b>{r.notes && <small>{r.notes}</small>}</td><td><span className="cat link" onClick={() => onOpenProfile(r.category)} title="Open this profile"><i style={{ background: catColor(r.category) }} />{r.category}</span></td><td className="r num"><b>{money(r.amount)}</b></td>
-            <td className="r"><Button kind="ghost" aria-label={`Delete ${r.title}`} onClick={async () => { if (!window.confirm(`Delete “${r.title}”?`)) return; try { await onRemove(r.id); notify("Expense deleted"); } catch (ex) { notify(ex.message, true); } }}><Trash2 size={15} /></Button></td></tr>)}</tbody></table></div>}
+            <td className="r"><Button kind="danger-soft" aria-label={`Delete ${r.title}`} title="Delete this expense" onClick={async () => { if (!window.confirm(`Delete “${r.title}”?`)) return; try { await onRemove(r.id); notify("Expense deleted"); } catch (ex) { notify(ex.message, true); } }}><Trash2 size={15} /></Button></td></tr>)}</tbody></table></div>}
       {!q && shown.length > 8 && <div className="view-all"><Button kind="ghost" onClick={() => setAllRows(v => !v)}>{allRows ? <><ChevronUp size={15} />Show latest 8</> : <><ChevronDown size={15} />View all {shown.length} expenses</>}</Button></div>}
     </section>
   </>;
@@ -262,12 +262,12 @@ function NewBillModal({ bills, names, categories, onClose, onSave }) {
   return <Modal title="New bill to pay" subtitle="Money you have to give to an employee, seller or contractor. You can pay it in parts." onClose={onClose}
     actions={<><Button kind="ghost" onClick={onClose}>Cancel</Button><Button form="new-bill-form" type="submit" disabled={busy}><Plus size={15} />{busy ? "Saving…" : "Save bill"}</Button></>}>
     <form id="new-bill-form" className="form" onSubmit={submit}>
+      <div className="span-2 pick-profile"><CategoryPicker value={f.category} onChange={v => set("category", v)} categories={categories} /></div>
       <label>Pay to <em>name</em><input list="bill-people" value={f.payee} onChange={e => pickPerson(e.target.value)} placeholder="e.g. Bilal Ahmed" autoFocus /></label>
       <datalist id="bill-people">{names.map(n => <option key={n} value={n} />)}</datalist>
       <label>WhatsApp number <em>for updates</em><input type="tel" inputMode="tel" value={f.payeePhone} onChange={e => set("payeePhone", e.target.value)} placeholder="0300 1234567" /></label>
       <label>Person is a<select value={f.payeeType} onChange={e => set("payeeType", e.target.value)}>{PAYEE_TYPES.map(c => <option key={c}>{c}</option>)}</select></label>
       <label>What for<input value={f.title} onChange={e => set("title", e.target.value)} placeholder="e.g. Plaster work, Plot 12" /></label>
-      <CategoryPicker value={f.category} onChange={v => set("category", v)} categories={categories} />
       <label>Total to pay (Rs)<input type="number" min="0" step="any" inputMode="decimal" value={f.amount} onChange={e => set("amount", e.target.value)} /></label>
       <label>Pay by <em>due date</em><input type="date" value={f.dueDate} onChange={e => set("dueDate", e.target.value)} /></label>
       <label>Paid now <em>optional</em><input type="number" min="0" step="any" inputMode="decimal" value={f.paidNow} onChange={e => set("paidNow", e.target.value)} placeholder="0" /></label>
@@ -308,37 +308,9 @@ function Bills({ bills, people, categories, onAdd, onOpen, notify }) {
 }
 
 
-function ExpenseModal({ category, names, onClose, onSave }) {
-  const [f, setF] = useState({ payee: "", payeeType: "Other", title: "", amount: "", date: toInputDate(), method: "Cash", notes: "" });
-  const [busy, setBusy] = useState(false), [err, setErr] = useState("");
-  const set = (k, v) => setF(x => ({ ...x, [k]: v }));
-  const submit = async e => {
-    e.preventDefault(); setErr("");
-    if (!f.title.trim()) return setErr("Enter what the expense was for.");
-    if (!(Number(f.amount) > 0)) return setErr("Enter an amount greater than zero.");
-    setBusy(true);
-    try { await onSave({ ...f, title: f.title.trim(), payee: f.payee.trim(), amount: Number(f.amount), category }); onClose(); }
-    catch (ex) { setErr(ex.message || "Could not save."); setBusy(false); }
-  };
-  return <Modal title={`Add expense to ${category}`} subtitle="It is saved under this profile." onClose={onClose}
-    actions={<><Button kind="ghost" onClick={onClose}>Cancel</Button><Button form="pexp-form" type="submit" disabled={busy}><Plus size={15} />{busy ? "Saving…" : "Add expense"}</Button></>}>
-    <form id="pexp-form" className="form" onSubmit={submit}>
-      <label>What for<input value={f.title} onChange={e => set("title", e.target.value)} placeholder="e.g. Electricity bill" autoFocus /></label>
-      <label>Amount (Rs)<input type="number" min="0" step="any" inputMode="decimal" value={f.amount} onChange={e => set("amount", e.target.value)} /></label>
-      <label>Paid to <em>optional</em><input list="pexp-names" value={f.payee} onChange={e => set("payee", e.target.value)} placeholder="Employee / seller name" /></label>
-      <datalist id="pexp-names">{names.map(n => <option key={n} value={n} />)}</datalist>
-      <label>Person is a<select value={f.payeeType} onChange={e => set("payeeType", e.target.value)}>{PAYEE_TYPES.map(c => <option key={c}>{c}</option>)}</select></label>
-      <label>Date<input type="date" value={f.date} onChange={e => set("date", e.target.value)} /></label>
-      <label>Paid by<select value={f.method} onChange={e => set("method", e.target.value)}><option>Cash</option><option>Bank Transfer</option><option>Card</option><option>Online</option><option>Cheque</option></select></label>
-      <label className="span-2"><span>Description <em>optional</em></span><textarea rows="3" value={f.notes} onChange={e => set("notes", e.target.value)} placeholder="Extra details, receipt no., agreement…" /></label>
-      {err && <div className="form-error span-2" role="alert">{err}</div>}
-    </form>
-  </Modal>;
-}
-
 // All profiles (every category is one), and the profile page of the one you open.
-function Profiles({ categories, expenses, bills, people, selected, setSelected, onAdd, onAddCategory, onRemove, onOpenBill, notify }) {
-  const [adding, setAdding] = useState(false), [name, setName] = useState(""), [addExp, setAddExp] = useState(false), [q, setQ] = useState(""), [view, setView] = useState("expenses");
+function Profiles({ categories, expenses, bills, people, selected, setSelected, onAdd, onAddCategory, onDeleteCategory, onRemove, onOpenBill, notify }) {
+  const [manage, setManage] = useState(false), [adding, setAdding] = useState(false), [name, setName] = useState(""), [addExp, setAddExp] = useState(false), [q, setQ] = useState(""), [view, setView] = useState("expenses");
   const names = useMemo(() => mergeCategories(categories, expenses.map(e => e.category), bills.map(b => b.category)), [categories, expenses, bills]);
   const stats = useMemo(() => names.map(n => {
     const es = expenses.filter(e => e.category === n), bs = bills.filter(b => b.category === n && b.status !== "Cancelled");
@@ -347,6 +319,12 @@ function Profiles({ categories, expenses, bills, people, selected, setSelected, 
   }).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name)), [names, expenses, bills]);
   const allNames = useMemo(() => mergeCategories(people, expenses.map(e => e.payee)), [people, expenses]);
 
+  const del = async (n, count) => {
+    const msg = count > 0 ? `Delete the profile “${n}”?\n\nIts ${count} ${count === 1 ? "entry" : "entries"} will be moved to “Other”. Nothing is lost.` : `Delete the profile “${n}”?`;
+    if (!window.confirm(msg)) return;
+    try { await onDeleteCategory(n); setSelected(null); }
+    catch (e) { notify(e.message, true); }
+  };
   const create = async () => {
     const n = name.trim(); if (!n) return setAdding(false);
     const known = names.find(x => x.toLowerCase() === n.toLowerCase());
@@ -368,7 +346,7 @@ function Profiles({ categories, expenses, bills, people, selected, setSelected, 
     ]);
     return <Profile onBack={() => { setSelected(null); setQ(""); setView("expenses"); }} backLabel="All profiles" avatar={selected[0].toUpperCase()} title={selected} subtitle="Everything you spent under this profile"
       stats={[["Total spent", money(st.total)], ["This month", money(st.month)], ["Entries", st.count], ["Bills to pay", st.toPay ? money(st.toPay) : "—", st.toPay ? "bad" : ""]]}
-      actions={<><Button onClick={() => setAddExp(true)}><Plus size={15} />Add expense</Button><Button kind="outline" onClick={excel} disabled={!rows.length && !myBills.length}><Download size={15} />Download Excel</Button></>}>
+      actions={<><Button onClick={() => setAddExp(true)}><Plus size={15} />Add expense</Button>{selected !== "Other" && <Button kind="danger-soft" onClick={() => del(selected, st.count + myBills.length)}><Trash2 size={15} />Delete profile</Button>}<Button kind="outline" onClick={excel} disabled={!rows.length && !myBills.length}><Download size={15} />Download Excel</Button></>}>
       <section className="panel">
         <div className="panel-head"><div><h3>{view === "expenses" ? "Expenses" : "Bills to pay"}</h3><p>{view === "expenses" ? `${shown.length} ${shown.length === 1 ? "entry" : "entries"} · ${money(shown.reduce((a, r) => a + Number(r.amount), 0))}` : `${myBills.length} ${myBills.length === 1 ? "bill" : "bills"} in this profile. Tap one to pay or send an update.`}</p></div>
           {view === "expenses" && <div className="toolbar-right"><label className="search"><Search size={16} /><input placeholder="Search name, title…" value={q} onChange={e => setQ(e.target.value)} /></label></div>}</div>
@@ -376,12 +354,12 @@ function Profiles({ categories, expenses, bills, people, selected, setSelected, 
         {view === "expenses" ? (shown.length === 0 ? <Empty title={rows.length ? "No expenses match" : "No expenses yet"} text={rows.length ? "Try another search." : `Press “Add expense” to record the first one under ${selected}.`} /> :
           <div className="table-wrap"><table><thead><tr><th>Date</th><th>Paid to</th><th>For</th><th className="r">Amount</th><th className="r"><span className="sr">Delete</span></th></tr></thead>
             <tbody>{shown.map(r => <tr key={r.id}><td>{fmtDate(r.d)}</td><td>{r.billId && <small>Bill payment</small>}{r.payee ? <><b>{r.payee}</b><small>{r.payeeType}</small></> : "—"}</td><td><b>{r.title}</b>{r.notes && <small>{r.notes}</small>}</td><td className="r num"><b>{money(r.amount)}</b></td>
-              <td className="r"><Button kind="ghost" aria-label={`Delete ${r.title}`} onClick={async () => { if (!window.confirm(`Delete “${r.title}”?`)) return; try { await onRemove(r.id); notify("Expense deleted"); } catch (ex) { notify(ex.message, true); } }}><Trash2 size={15} /></Button></td></tr>)}</tbody></table></div>)
+              <td className="r"><Button kind="danger-soft" aria-label={`Delete ${r.title}`} title="Delete this expense" onClick={async () => { if (!window.confirm(`Delete “${r.title}”?`)) return; try { await onRemove(r.id); notify("Expense deleted"); } catch (ex) { notify(ex.message, true); } }}><Trash2 size={15} /></Button></td></tr>)}</tbody></table></div>)
         : (myBills.length === 0 ? <Empty title="No bills" text={`Bills to pay that you create with the category “${selected}” appear here.`} /> :
           <div className="table-wrap"><table><thead><tr><th>Person</th><th>For</th><th className="r">Total</th><th className="r">Paid / left</th><th>Status</th></tr></thead>
             <tbody>{myBills.map(b => <tr key={b.id} className="clickable" onClick={() => onOpenBill(b)}><td><b>{b.customer}</b><small>{b.payeeType}</small></td><td>{b.service}{b.notes && <small>{b.notes}</small>}</td><td className="r num"><b>{money(b.amount)}</b></td><td className="r num">{money(b.paidAmount)}<small>left {money(b.balance)}</small></td><td><Status value={b.status} /></td></tr>)}</tbody></table></div>)}
       </section>
-      {addExp && <ExpenseModal category={selected} names={allNames} onClose={() => setAddExp(false)} onSave={async d => { await onAdd(d); notify("Expense added"); }} />}
+      {addExp && <NewExpenseModal initialCategory={selected} names={allNames} categories={names} onClose={() => setAddExp(false)} onSave={async d => { await onAdd(d); notify("Expense added"); }} />}
     </Profile>;
   }
 
@@ -389,24 +367,25 @@ function Profiles({ categories, expenses, bills, people, selected, setSelected, 
     <div className="panel-head"><div><h3>Expense profiles</h3><p>Every category is a profile, like a customer. Open one (Home, Rent, Site A…) to see all its expenses and download them as Excel.</p></div>
       <div className="toolbar-right">{adding
         ? <span className="cat-add"><input autoFocus value={name} maxLength={40} placeholder="Profile name, e.g. Home" onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === "Enter") create(); }} /><Button onClick={create}>Create</Button><Button kind="ghost" onClick={() => setAdding(false)}>Cancel</Button></span>
-        : <Button onClick={() => setAdding(true)}><FolderPlus size={15} />New profile</Button>}</div></div>
-    <ul className="prof-grid">{stats.map(p => <li key={p.name}><button onClick={() => setSelected(p.name)}>
+        : <><Button kind="outline" onClick={() => setManage(m => !m)}>{manage ? <><Check size={15} />Done</> : <><Settings2 size={15} />Manage profiles</>}</Button><Button onClick={() => setAdding(true)}><FolderPlus size={15} />New profile</Button></>}</div></div>
+    {manage && <p className="hint">Manage mode: press <b>Delete</b> on a profile you do not need. Its entries move to “Other”.</p>}
+    <ul className={`prof-grid ${manage ? "is-manage" : ""}`}>{stats.map(p => <li key={p.name} className={manage ? "managing" : ""}><button onClick={() => manage ? null : setSelected(p.name)}>
       <span className="prof-dot" style={{ background: catColor(p.name) }}>{p.name[0].toUpperCase()}</span>
       <span className="prof-main"><b>{p.name}</b><small>{p.count} {p.count === 1 ? "entry" : "entries"} · this month {money(p.month)}</small>{p.toPay > 0 && <small className="owes">{money(p.toPay)} still to pay</small>}</span>
-      <span className="prof-total num">{money(p.total)}</span><ChevronRight size={18} className="inv-go" />
-    </button></li>)}</ul>
+      <span className="prof-total num">{money(p.total)}</span>{!manage && <ChevronRight size={18} className="inv-go" />}
+    </button>{manage && (p.name === "Other" ? <small className="prof-keep">Always kept</small> : <Button kind="danger-soft" className="prof-del" onClick={() => del(p.name, p.count + bills.filter(b => b.category === p.name).length)}><Trash2 size={15} />Delete</Button>)}</li>)}</ul>
   </section>;
 }
 
-export default function Expenses({ sales, expenses, bills = [], budgets, people = [], categories = DEFAULT_CATEGORIES, onAddCategory, onAdd, onAddBill, onOpenBill, onRemove, onSetLimit, notify }) {
-  const [tab, setTab] = useState("report");
+export default function Expenses({ sales, expenses, bills = [], budgets, people = [], categories = DEFAULT_CATEGORIES, onAddCategory, onDeleteCategory, onAdd, onAddBill, onOpenBill, onRemove, onSetLimit, notify }) {
+  const [tab, setTab] = useState("profiles");
   const [profile, setProfile] = useState(null);
   const openProfile = c => { setProfile(c); setTab("profiles"); window.scrollTo(0, 0); };
   // Choosing a tab (including "Profiles" itself) always starts from the list; a profile only opens when you tap it.
   const changeTab = t => { setProfile(null); setTab(t); };
   const cats = useMemo(() => mergeCategories(categories, expenses.map(e => e.category), bills.map(b => b.category)), [categories, expenses, bills]);
   return <>
-    <Segmented label="Expenses section" value={tab} onChange={changeTab} options={[["report", "Report"], ["entries", "Expenses"], ["bills", `Bills${bills.filter(isOpen).length ? ` (${bills.filter(isOpen).length})` : ""}`], ["profiles", "Profiles"]]} />
-    {tab === "report" ? <Report sales={sales} expenses={expenses} /> : tab === "bills" ? <Bills {...{ bills, people, categories: cats, onAdd: onAddBill, onOpen: onOpenBill, notify }} /> : tab === "profiles" ? <Profiles {...{ categories: cats, expenses, bills, people, selected: profile, setSelected: setProfile, onAdd, onAddCategory, onRemove, onOpenBill, notify }} /> : <Entries {...{ expenses, budgets, people, categories: cats, onOpenProfile: openProfile, onAdd, onRemove, onSetLimit, notify }} />}
+    <Segmented label="Expenses section" value={tab} onChange={changeTab} options={[["profiles", "Profiles"], ["entries", "Expenses"], ["bills", `Bills${bills.filter(isOpen).length ? ` (${bills.filter(isOpen).length})` : ""}`], ["report", "Report"]]} />
+    {tab === "report" ? <Report sales={sales} expenses={expenses} /> : tab === "bills" ? <Bills {...{ bills, people, categories: cats, onAdd: onAddBill, onOpen: onOpenBill, notify }} /> : tab === "profiles" ? <Profiles {...{ categories: cats, expenses, bills, people, selected: profile, setSelected: setProfile, onAdd, onAddCategory, onDeleteCategory, onRemove, onOpenBill, notify }} /> : <Entries {...{ expenses, budgets, people, categories: cats, onOpenProfile: openProfile, onAdd, onRemove, onSetLimit, notify }} />}
   </>;
 }

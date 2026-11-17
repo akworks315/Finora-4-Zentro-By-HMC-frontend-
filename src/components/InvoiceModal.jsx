@@ -53,10 +53,10 @@ export default function InvoiceModal({ invoice: inv, company, onClose, onMarkPai
       <div className="modal-actions-left">
         {confirmDelete
           ? <><span className="confirm-text">Delete this permanently?</span><Button kind="danger" onClick={() => onDelete(inv)}>Yes, delete</Button><Button kind="ghost" onClick={() => setConfirmDelete(false)}>Keep it</Button></>
-          : <>{canDelete && <Button kind="ghost" onClick={() => setConfirmDelete(true)}><Trash2 size={15} />Delete</Button>}
-            {canEdit && inv.status !== "Cancelled" && inv.status !== "Paid" && <Button kind="ghost" onClick={() => onCancel(inv)}><Ban size={15} />{isBill ? "Cancel" : "Cancel invoice"}</Button>}</>}
+          : <>{canDelete && <Button kind="danger-soft" onClick={() => setConfirmDelete(true)}><Trash2 size={15} />Delete</Button>}
+            {canEdit && inv.status !== "Cancelled" && inv.status !== "Paid" && <Button kind="danger-soft" onClick={() => onCancel(inv)}><Ban size={15} />{isBill ? "Cancel" : "Cancel invoice"}</Button>}</>}
       </div>
-      {open && canEdit && <Button kind="outline" onClick={() => onMarkPaid(inv)} title="Record the whole remaining amount as received"><Check size={15} />{inv.paidAmount > 0 ? "Mark rest as paid" : "Mark as paid"}</Button>}
+      {open && canEdit && <Button kind="success" onClick={() => onMarkPaid(inv)} title="Record the whole remaining amount as received"><Check size={15} />{inv.paidAmount > 0 ? "Mark rest as paid" : "Mark as paid"}</Button>}
       <Button kind="outline" onClick={print} title="Print this invoice"><Printer size={15} /><span className="btn-text">Print</span></Button>
       <Button kind="outline" onClick={download}><Download size={15} /><span className="btn-text">PDF</span></Button>
       {canSharePicture() && <Button kind="outline" onClick={share} disabled={busy} title="Share picture + message through the share sheet (you choose the chat)"><Share2 size={15} /><span className="btn-text">Share</span></Button>}

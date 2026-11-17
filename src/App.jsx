@@ -156,6 +156,16 @@ export default function App() {
   };
   const setLimit = async (category, limit) => { await apiRequest(`/budgets/${encodeURIComponent(category)}`, { method: "PUT", body: JSON.stringify({ limit }) }); setBudgets(b => ({ ...b, [category]: limit })); };
   const addCategory = async name => { const r = await apiRequest("/categories", { method: "POST", body: JSON.stringify({ name }) }); setCategories(l => l.some(c => c.toLowerCase() === r.name.toLowerCase()) ? l : [...l, r.name]); notify(`Profile “${r.name}” created`); };
+  // Deleting a profile moves its expenses and bills to "Other" (the server does the same), so the screen is updated to match.
+  const deleteCategory = async name => {
+    await apiRequest(`/categories/${encodeURIComponent(name)}`, { method: "DELETE" });
+    const mine = c => String(c || "").toLowerCase() === name.toLowerCase();
+    setCategories(l => l.filter(c => !mine(c)));
+    setExpenses(l => l.map(e => mine(e.category) ? { ...e, category: "Other" } : e));
+    setPayables(l => l.map(b => mine(b.category) ? { ...b, category: "Other" } : b));
+    setBudgets(b => Object.fromEntries(Object.entries(b).filter(([k]) => !mine(k))));
+    notify(`Profile “${name}” deleted`);
+  };
   const saveBusiness = async changes => {
     try { setBusiness(await apiRequest("/settings", { method: "PUT", body: JSON.stringify(changes) })); notify("Saved"); }
     catch (e) { notify(e.message, true); }
@@ -203,7 +213,7 @@ export default function App() {
           {page === "Dashboard" && <Dashboard rows={dashRows} allRows={all} expenses={expenseRows} works={workRows} goWork={() => go("Work & permissions")} range={dashRange} setRange={setDashRange} onOpen={r => setOpenId(r.id)} onMarkPaid={markPaid} goSales={() => go("Sales & invoices")} goExpenses={() => go("Expenses")} />}
           {page === "Sales & invoices" && <Sales key={salesQuery} initialQuery={salesQuery} rows={salesRows} range={salesRange} setRange={setSalesRange} onOpen={r => setOpenId(r.id)} onMarkPaid={markPaid} onAdd={() => setForm(true)} />}
           {page === "Customers" && <Customers rows={all} onOpen={r => setOpenId(r.id)} />}
-          {page === "Expenses" && <Expenses sales={all} expenses={expenseRows} bills={billRows} budgets={budgets} people={people} categories={categories} onAddCategory={addCategory} onAddBill={saveBill} onOpenBill={b => setOpenId(b.id)} onAdd={addExpense} onRemove={removeExpense} onSetLimit={setLimit} notify={notify} />}
+          {page === "Expenses" && <Expenses sales={all} expenses={expenseRows} bills={billRows} budgets={budgets} people={people} categories={categories} onAddCategory={addCategory} onDeleteCategory={deleteCategory} onAddBill={saveBill} onOpenBill={b => setOpenId(b.id)} onAdd={addExpense} onRemove={removeExpense} onSetLimit={setLimit} notify={notify} />}
           {page === "Work & permissions" && <Calculators works={workRows} employees={people} onSaveWork={saveWork} onRenewWork={renewWork} onWorkStatus={setWorkStatus} onDeleteWork={deleteWork} onBillWork={billFromWork} notify={notify} />}
         </>}
       </div>

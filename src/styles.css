@@ -81,7 +81,6 @@ main { margin-left: 248px; min-height: 100vh; display: flex; flex-direction: col
 .action-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
 .action-bar h3 { font: 700 18px var(--display); letter-spacing: -.25px; }
 .action-bar p { color: var(--ink-3); font-size: 13.5px; margin-top: 3px; max-width: 640px; }
-.btn-delete { color: var(--overdue); border-color: color-mix(in srgb, var(--overdue) 45%, var(--line)); } .btn-delete:hover:not(:disabled) { background: color-mix(in srgb, var(--overdue) 10%, var(--surface)); border-color: var(--overdue); }
 .work-table .row-actions { flex-wrap: wrap; }
 .top-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 .clock { display: flex; flex-direction: column; line-height: 1.2; padding-left: 14px; border-left: 3px solid var(--brand); }
@@ -611,11 +610,38 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; touch-action: man
 .cat-add { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; width: 100%; } .cat-add input { flex: 1 1 160px; min-width: 0; }
 .cat.link { cursor: pointer; } .cat.link:hover { text-decoration: underline; }
 .prof-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
-.prof-grid button { position: relative; width: 100%; text-align: left; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); padding: 13px 38px 13px 14px; min-height: 60px; }
-.prof-grid button:hover { background: var(--hover); } .prof-grid button:active { transform: scale(.995); }
+.prof-grid li > button:not(.btn) { position: relative; width: 100%; text-align: left; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); padding: 13px 38px 13px 14px; min-height: 60px; }
+.prof-grid li > button:not(.btn):hover { background: var(--hover); } .prof-grid li > button:not(.btn):active { transform: scale(.995); }
 .prof-dot { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; color: #fff; font: 800 18px var(--display); }
 .prof-main { display: grid; gap: 1px; min-width: 0; } .prof-main small { color: var(--ink-3); font-size: 12.5px; overflow-wrap: anywhere; } .prof-main .owes { color: var(--overdue); font-weight: 650; }
 .prof-total { font-weight: 700; text-align: right; }
 @media (max-width: 760px) { .prof-grid { grid-template-columns: 1fr; } }
 
 @media (max-width: 760px) { .work-table, .work-table tbody, .work-table tr { max-width: 100%; box-sizing: border-box; } }
+
+/* ---------- button polish ---------- */
+.btn { border-radius: 12px; padding: 10px 18px; font-weight: 650; letter-spacing: .1px; }
+.btn svg { flex: none; }
+.btn-primary { background: linear-gradient(135deg, var(--brand), var(--brand-ink)); box-shadow: 0 2px 6px var(--brand-glow); }
+.btn-primary:hover:not(:disabled) { background: linear-gradient(135deg, var(--brand), var(--brand-ink)); filter: brightness(1.08); }
+.btn-outline { box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+.btn-outline:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(0,0,0,.08); border-color: var(--brand); color: var(--brand); }
+.btn-ghost:hover:not(:disabled) { transform: none; }
+.btn:focus-visible { outline: 3px solid var(--brand-soft); outline-offset: 2px; }
+/* green = good / done (Paid, Work completed); red = destructive (Delete, Cancel) */
+.btn-success, .btn-danger-soft { border-width: 1.5px; box-shadow: none; }
+.btn-success { color: var(--paid); background: color-mix(in srgb, var(--paid) 12%, var(--surface)); border-color: color-mix(in srgb, var(--paid) 55%, transparent); }
+.btn-success:hover:not(:disabled) { background: var(--paid); color: #fff; border-color: var(--paid); transform: translateY(-1px); box-shadow: 0 8px 18px color-mix(in srgb, var(--paid) 35%, transparent); }
+.btn-danger-soft { color: var(--overdue); background: color-mix(in srgb, var(--overdue) 10%, var(--surface)); border-color: color-mix(in srgb, var(--overdue) 55%, transparent); }
+.btn-danger-soft:hover:not(:disabled) { background: var(--overdue); color: #fff; border-color: var(--overdue); transform: translateY(-1px); box-shadow: 0 8px 18px color-mix(in srgb, var(--overdue) 35%, transparent); }
+:root[data-theme="dark"] .btn-success:hover:not(:disabled), :root[data-theme="dark"] .btn-danger-soft:hover:not(:disabled) { color: #0b1020; }
+.btn-danger { background: linear-gradient(135deg, var(--overdue), color-mix(in srgb, var(--overdue) 78%, #000)); }
+.pick-profile label { padding: 12px; border-radius: 13px; background: var(--brand-soft); border: 1px dashed color-mix(in srgb, var(--brand) 45%, transparent); }
+/* manage profiles */
+.prof-grid.is-manage { grid-template-columns: 1fr; }
+.prof-grid li.managing { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.prof-grid li.managing > button:not(.btn) { padding-right: 14px; width: auto; flex: 1 1 240px; min-width: 0; }
+.prof-grid li.managing > button { flex: 1; min-width: 0; cursor: default; }
+.prof-del { flex: 0 0 auto; } .prof-keep { color: var(--ink-3); padding: 0 12px; flex: none; }
+
+.tabbar button.on::before { display: none; }
