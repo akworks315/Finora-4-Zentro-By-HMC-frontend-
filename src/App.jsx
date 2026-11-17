@@ -181,8 +181,8 @@ export default function App() {
     <main>
       <header className="top">
         <button className="icon-btn burger" onClick={() => setDrawer(true)} aria-label="Open menu"><Menu size={20} /></button>
+        <div className="top-brand"><Logo size={36} /><h2 className="top-title"><span className="t-full">{title}</span><span className="t-short">{TAB_LABEL[page]}</span></h2></div>
         <Clock />
-        <h2 className="top-title">{TAB_LABEL[page]}</h2>
         <div className="top-actions">
           <button className="icon-btn theme-toggle" onClick={() => setTheme(t => t === "dark" ? "light" : "dark")} aria-label={theme === "dark" ? "Switch to day mode" : "Switch to night mode"} title={theme === "dark" ? "Day mode" : "Night mode"}><Sun className="sun" size={18} /><Moon className="moon" size={17} /></button>
           <Notifications invoices={all} budgets={budgetLevels} works={workRows} onOpenInvoice={r => setOpenId(r.id)} goExpenses={() => go("Expenses")} goWork={() => go("Work & permissions")} />

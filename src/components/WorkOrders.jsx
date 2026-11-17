@@ -42,12 +42,12 @@ export default function WorkOrders({ works, onRenew, onStatus, onDelete, onBill,
     .sort((a, b) => (permitNeedsAction(b) - permitNeedsAction(a)) || ((a.permitDue || 9e15) - (b.permitDue || 9e15))), [works, q, tab]);
 
   return <section className="panel">
-    <div className="panel-head"><div><h3>Work given & working permissions</h3><p>Every area with its permission dates. Permissions that expire this month or already expired are flagged. Renew them here.</p></div></div>
+    <div className="panel-head"><div><h3>Permission list</h3><p>Every area with its permission dates. Permissions that expire this month or already expired are flagged. Renew them here.</p></div></div>
     <div className="toolbar">
       <Segmented label="Show" value={tab} onChange={setTab} options={[["all", `All (${works.length})`], ["action", `Needs action (${counts.action})`], ["active", `Active (${counts.active})`], ["done", `Closed (${counts.done})`]]} />
       <div className="toolbar-right"><label className="search"><Search size={16} /><input placeholder="Search area, employee, permit no." value={q} onChange={e => setQ(e.target.value)} /></label></div>
     </div>
-    {shown.length === 0 ? <Empty title={works.length ? "Nothing matches" : "No work saved yet"} text={works.length ? "Try another filter or search." : "Use the calculator above and press “Save work order”."} /> :
+    {shown.length === 0 ? <Empty title={works.length ? "Nothing matches" : "No work saved yet"} text={works.length ? "Try another filter or search." : "Press “New permission” above to add the first one."} /> :
       <div className="table-wrap"><table className="work-table">
         <thead><tr><th>Area / employee</th><th>Permission</th><th className="r">Actions</th></tr></thead>
         <tbody>{shown.map(w => <React.Fragment key={w.id}>
@@ -59,10 +59,10 @@ export default function WorkOrders({ works, onRenew, onStatus, onDelete, onBill,
             <td className="r"><div className="row-actions">
               <Button kind="outline" onClick={() => setRenewing(w)} title="Renew or update the permission"><CalendarClock size={15} />{w.permitDue ? "Renew" : "Set dates"}</Button>
               {onBill && w.amount > 0 && w.employee && w.status !== "Cancelled" && <Button kind="outline" onClick={() => { if (window.confirm(`Create a bill of ${money(w.amount)} to pay ${w.employee}? You can pay it in parts and send WhatsApp updates.`)) onBill(w); }} title="Create a bill to pay this employee (part payments + WhatsApp)"><Banknote size={15} />Bill</Button>}
-              {w.history.length > 0 && <Button kind="ghost" onClick={() => setOpenHist(openHist === w.id ? null : w.id)} title="Earlier permission periods"><History size={15} />{w.history.length}</Button>}
-              {w.status === "Active" && <Button kind="ghost" onClick={() => onStatus(w, "Completed")} title="Mark the work as completed"><CheckCircle2 size={15} /></Button>}
-              {w.status !== "Active" && <Button kind="ghost" onClick={() => onStatus(w, "Active")}>Reopen</Button>}
-              <Button kind="ghost" aria-label={`Delete work of ${w.employee}`} onClick={() => { if (window.confirm(`Delete the permission saved for ${w.site}?`)) onDelete(w); }}><Trash2 size={15} /></Button>
+              {w.history.length > 0 && <Button kind="outline" onClick={() => setOpenHist(openHist === w.id ? null : w.id)} title="Earlier permission periods"><History size={15} />History ({w.history.length})</Button>}
+              {w.status === "Active" && <Button kind="outline" onClick={() => onStatus(w, "Completed")} title="The work is finished: moves it to Closed"><CheckCircle2 size={15} />Work completed</Button>}
+              {w.status !== "Active" && <Button kind="outline" onClick={() => onStatus(w, "Active")} title="Move this work back to Active"><RefreshCw size={15} />Reopen work</Button>}
+              <Button kind="outline" className="btn-delete" aria-label={`Delete permission of ${w.site}`} title="Delete this permission permanently" onClick={() => { if (window.confirm(`Delete the permission saved for ${w.site}?`)) onDelete(w); }}><Trash2 size={15} />Delete</Button>
             </div></td>
           </tr>
           {openHist === w.id && <tr className="hist-row"><td colSpan={3}><b>Earlier permissions</b><ul className="pay-list">{w.history.map(h => <li key={h.id}><span>{h.permitNo || "—"}</span><span>{fmtDate(h.start)} → {fmtDate(h.due)}{h.note ? ` · ${h.note}` : ""}</span><span>Renewed {fmtDate(h.renewedAt)}</span></li>)}</ul></td></tr>}

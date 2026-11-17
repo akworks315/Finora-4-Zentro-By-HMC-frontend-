@@ -126,9 +126,38 @@ function Report({ sales, expenses }) {
   </>;
 }
 
-function Entries({ expenses, budgets, people, categories, onOpenProfile, onAdd, onRemove, onSetLimit, notify }) {
+// Pop-up form for a new expense (opened by the "Add expense" button).
+function NewExpenseModal({ names, categories, onClose, onSave }) {
   const [f, setF] = useState({ title: "", payee: "", payeeType: "Employee", category: "Other", amount: "", date: toInputDate(), method: "Cash", notes: "" });
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(false), [err, setErr] = useState("");
+  const set = (k, v) => setF(x => ({ ...x, [k]: v }));
+  const submit = async e => {
+    e.preventDefault(); setErr("");
+    if (!f.title.trim()) return setErr("Enter what the expense was for.");
+    if (!(Number(f.amount) > 0)) return setErr("Enter an amount greater than zero.");
+    setBusy(true);
+    try { await onSave({ ...f, title: f.title.trim(), payee: f.payee.trim(), amount: Number(f.amount) }); onClose(); }
+    catch (ex) { setErr(ex.message || "Could not save."); setBusy(false); }
+  };
+  return <Modal title="Add an expense" subtitle="Saved to your database and counted in that month’s report." onClose={onClose}
+    actions={<><Button kind="ghost" onClick={onClose}>Cancel</Button><Button form="new-exp-form" type="submit" disabled={busy}><Plus size={15} />{busy ? "Saving…" : "Add expense"}</Button></>}>
+    <form id="new-exp-form" className="form" onSubmit={submit}>
+      <label>What for<input value={f.title} onChange={e => set("title", e.target.value)} placeholder="e.g. Labour for plaster work" autoFocus /></label>
+      <label>Amount (Rs)<input type="number" min="0" step="any" inputMode="decimal" value={f.amount} onChange={e => set("amount", e.target.value)} /></label>
+      <label>Paid to <em>employee / seller name</em><input list="new-exp-people" value={f.payee} onChange={e => set("payee", e.target.value)} placeholder="e.g. Ali Raza" /></label>
+      <datalist id="new-exp-people">{names.map(n => <option key={n} value={n} />)}</datalist>
+      <label>Person is a<select value={f.payeeType} onChange={e => set("payeeType", e.target.value)}>{PAYEE_TYPES.map(c => <option key={c}>{c}</option>)}</select></label>
+      <CategoryPicker value={f.category} onChange={v => set("category", v)} categories={categories} />
+      <label>Date<input type="date" value={f.date} onChange={e => set("date", e.target.value)} /></label>
+      <label>Paid by<select value={f.method} onChange={e => set("method", e.target.value)}><option>Cash</option><option>Bank Transfer</option><option>Card</option><option>Online</option><option>Cheque</option></select></label>
+      <label className="span-2"><span>Description <em>optional</em></span><textarea rows="2" value={f.notes} onChange={e => set("notes", e.target.value)} placeholder="Extra details: what was done, receipt no., agreement…" /></label>
+      {err && <div className="form-error span-2" role="alert">{err}</div>}
+    </form>
+  </Modal>;
+}
+
+function Entries({ expenses, budgets, people, categories, onOpenProfile, onAdd, onRemove, onSetLimit, notify }) {
+  const [adding, setAdding] = useState(false);
   const [month, setMonth] = useState("all");
   const [q, setQ] = useState("");
   const [allPeople, setAllPeople] = useState(false), [allBudget, setAllBudget] = useState(false), [allRows, setAllRows] = useState(false);
@@ -151,31 +180,14 @@ function Entries({ expenses, budgets, people, categories, onOpenProfile, onAdd, 
   const unnamed = shown.filter(r => !(r.payee || "").trim()).reduce((a, r) => a + Number(r.amount), 0);
   const exactPerson = names.find(n => n.toLowerCase() === needle);
 
-  const submit = async e => {
-    e.preventDefault();
-    if (!f.title.trim()) return notify("Enter what the expense was for.", true);
-    if (!(Number(f.amount) > 0)) return notify("Enter an amount greater than zero.", true);
-    setBusy(true);
-    try { await onAdd({ ...f, title: f.title.trim(), payee: f.payee.trim(), amount: Number(f.amount) }); setF(x => ({ ...x, title: "", amount: "", notes: "" })); notify("Expense added"); }
-    catch (ex) { notify(ex.message, true); } finally { setBusy(false); }
-  };
   const excel = () => downloadXlsx(`expenses-${toInputDate()}`, [{ name: "Expenses", rows: entryRows(shown) }, { name: "By person", rows: personRows(shown) }]);
 
   return <>
-    <section className="panel">
-      <div className="panel-head"><div><h3>Add an expense</h3><p>It is saved to your database and counts in that month’s report.</p></div></div>
-      <form className="form expense-form" onSubmit={submit}>
-        <label>Paid to <em>employee / seller name</em><input list="payee-list" value={f.payee} onChange={e => setF({ ...f, payee: e.target.value })} placeholder="e.g. Ali Raza" /></label>
-        <datalist id="payee-list">{names.map(n => <option key={n} value={n} />)}</datalist>
-        <label>Person is a<select value={f.payeeType} onChange={e => setF({ ...f, payeeType: e.target.value })}>{PAYEE_TYPES.map(c => <option key={c}>{c}</option>)}</select></label>
-        <label>What for<input value={f.title} onChange={e => setF({ ...f, title: e.target.value })} placeholder="e.g. Labour for plaster work" /></label>
-        <CategoryPicker value={f.category} onChange={v => setF({ ...f, category: v })} categories={categories} />
-        <label>Amount (Rs)<input type="number" min="0" step="any" inputMode="decimal" value={f.amount} onChange={e => setF({ ...f, amount: e.target.value })} /></label>
-        <label>Date<input type="date" value={f.date} onChange={e => setF({ ...f, date: e.target.value })} /></label>
-        <label className="span-all"><span>Description <em>optional</em></span><textarea rows="2" value={f.notes} onChange={e => setF({ ...f, notes: e.target.value })} placeholder="Extra details: what was done, receipt no., agreement…" /></label>
-        <div className="swap"><Button type="submit" disabled={busy}><Plus size={15} />Add expense</Button></div>
-      </form>
-    </section>
+    <div className="action-bar">
+      <div><h3>Expenses</h3><p>Money you spent. Each entry counts in that month’s report.</p></div>
+      <Button onClick={() => setAdding(true)}><Plus size={16} />Add expense</Button>
+    </div>
+    {adding && <NewExpenseModal names={names} categories={categories} onClose={() => setAdding(false)} onSave={async d => { await onAdd(d); notify("Expense added"); }} />}
 
     <section className="panel">
       <div className="panel-head"><div><h3>Spending by person</h3><p>How much you spent on each employee or seller{month !== "all" ? " in the selected month" : ""}{q ? ` matching “${q}”` : ""}. Tap a name to see every payment to them.</p></div></div>
@@ -228,55 +240,64 @@ function Entries({ expenses, budgets, people, categories, onOpenProfile, onAdd, 
 }
 
 
-function Bills({ bills, people, categories, onAdd, onOpen, notify }) {
+// Pop-up form for a new bill to pay (opened by the "New bill" button).
+function NewBillModal({ bills, names, categories, onClose, onSave }) {
   const due = new Date(); due.setDate(due.getDate() + 14);
   const [f, setF] = useState({ payee: "", payeePhone: "", payeeType: "Employee", title: "", category: "Labour", amount: "", dueDate: toInputDate(due), paidNow: "", method: "Cash", notes: "" });
-  const [busy, setBusy] = useState(false), [q, setQ] = useState(""), [tab, setTab] = useState("open"), [all, setAll] = useState(false);
+  const [busy, setBusy] = useState(false), [err, setErr] = useState("");
   const set = (k, v) => setF(x => ({ ...x, [k]: v }));
-  const names = useMemo(() => [...new Set([...people, ...bills.map(b => b.customer)])].sort((a, b) => a.localeCompare(b)), [people, bills]);
   const total = Number(f.amount) || 0, paid = Number(f.paidNow) || 0;
   const pickPerson = v => { const known = bills.find(b => b.customer.toLowerCase() === v.trim().toLowerCase()); setF(x => ({ ...x, payee: v, payeePhone: x.payeePhone || known?.customerPhone || "", payeeType: known?.payeeType || x.payeeType })); };
+  const submit = async e => {
+    e.preventDefault(); setErr("");
+    if (!f.payee.trim()) return setErr("Enter the name of the person you pay.");
+    if (f.payeePhone.trim() && !isValidPhone(f.payeePhone)) return setErr("WhatsApp number looks wrong. Use e.g. 0300 1234567.");
+    if (!f.title.trim()) return setErr("Enter what the payment is for.");
+    if (!(total > 0)) return setErr("Enter the total amount you have to pay.");
+    if (paid < 0 || paid > total) return setErr("Amount paid now must be between 0 and the total.");
+    setBusy(true);
+    try { await onSave({ ...f, payee: f.payee.trim(), title: f.title.trim(), amount: total, paidNow: paid, method: paid > 0 ? f.method : "Not recorded" }); onClose(); }
+    catch (ex) { setErr(ex.message || "Could not save."); setBusy(false); }
+  };
+  return <Modal title="New bill to pay" subtitle="Money you have to give to an employee, seller or contractor. You can pay it in parts." onClose={onClose}
+    actions={<><Button kind="ghost" onClick={onClose}>Cancel</Button><Button form="new-bill-form" type="submit" disabled={busy}><Plus size={15} />{busy ? "Saving…" : "Save bill"}</Button></>}>
+    <form id="new-bill-form" className="form" onSubmit={submit}>
+      <label>Pay to <em>name</em><input list="bill-people" value={f.payee} onChange={e => pickPerson(e.target.value)} placeholder="e.g. Bilal Ahmed" autoFocus /></label>
+      <datalist id="bill-people">{names.map(n => <option key={n} value={n} />)}</datalist>
+      <label>WhatsApp number <em>for updates</em><input type="tel" inputMode="tel" value={f.payeePhone} onChange={e => set("payeePhone", e.target.value)} placeholder="0300 1234567" /></label>
+      <label>Person is a<select value={f.payeeType} onChange={e => set("payeeType", e.target.value)}>{PAYEE_TYPES.map(c => <option key={c}>{c}</option>)}</select></label>
+      <label>What for<input value={f.title} onChange={e => set("title", e.target.value)} placeholder="e.g. Plaster work, Plot 12" /></label>
+      <CategoryPicker value={f.category} onChange={v => set("category", v)} categories={categories} />
+      <label>Total to pay (Rs)<input type="number" min="0" step="any" inputMode="decimal" value={f.amount} onChange={e => set("amount", e.target.value)} /></label>
+      <label>Pay by <em>due date</em><input type="date" value={f.dueDate} onChange={e => set("dueDate", e.target.value)} /></label>
+      <label>Paid now <em>optional</em><input type="number" min="0" step="any" inputMode="decimal" value={f.paidNow} onChange={e => set("paidNow", e.target.value)} placeholder="0" /></label>
+      {paid > 0 ? <label>Paid by<select value={f.method} onChange={e => set("method", e.target.value)}><option>Cash</option><option>Bank Transfer</option><option>Card</option><option>Online</option><option>Cheque</option></select></label> : <div />}
+      {total > 0 && <div className="pay-hint span-2">{paid >= total ? "Whole amount paid: the bill will be marked Paid." : paid > 0 ? `${money(paid)} paid, ${money(total - paid)} still to pay (Partial).` : "Nothing paid yet. You can record payments later, in parts."}</div>}
+      <label className="span-2"><span>Description <em>optional, printed on the payment slip</em></span><textarea rows="2" value={f.notes} onChange={e => set("notes", e.target.value)} placeholder="Extra details: scope of work, agreement, terms…" /></label>
+      {err && <div className="form-error span-2" role="alert">{err}</div>}
+    </form>
+  </Modal>;
+}
+
+function Bills({ bills, people, categories, onAdd, onOpen, notify }) {
+  const [adding, setAdding] = useState(false), [q, setQ] = useState(""), [tab, setTab] = useState("open"), [all, setAll] = useState(false);
+  const names = useMemo(() => [...new Set([...people, ...bills.map(b => b.customer)])].sort((a, b) => a.localeCompare(b)), [people, bills]);
   const toPay = bills.filter(isOpen).reduce((a, b) => a + b.balance, 0);
   const shown = bills.filter(b => (tab === "all" || (tab === "open" && isOpen(b)) || (tab === "paid" && b.status === "Paid")) && [b.customer, b.service, b.category].join(" ").toLowerCase().includes(q.trim().toLowerCase()));
   const list = q || all ? shown : shown.slice(0, 8);
 
-  const submit = async e => {
-    e.preventDefault();
-    if (!f.payee.trim()) return notify("Enter the name of the person you pay.", true);
-    if (f.payeePhone.trim() && !isValidPhone(f.payeePhone)) return notify("WhatsApp number looks wrong. Use e.g. 0300 1234567.", true);
-    if (!f.title.trim()) return notify("Enter what the payment is for.", true);
-    if (!(total > 0)) return notify("Enter the total amount you have to pay.", true);
-    if (paid < 0 || paid > total) return notify("Amount paid now must be between 0 and the total.", true);
-    setBusy(true);
-    try { await onAdd({ ...f, payee: f.payee.trim(), title: f.title.trim(), amount: total, paidNow: paid, method: paid > 0 ? f.method : "Not recorded" }); setF(x => ({ ...x, payee: "", payeePhone: "", title: "", amount: "", paidNow: "", notes: "" })); }
-    catch (ex) { notify(ex.message, true); } finally { setBusy(false); }
-  };
-
   return <>
-    <section className="panel">
-      <div className="panel-head"><div><h3>New bill to pay</h3><p>Money you have to give to an employee, seller or contractor. Pay it in parts; each payment counts as an expense and the person can get a WhatsApp update.</p></div></div>
-      <form className="form expense-form" onSubmit={submit}>
-        <label>Pay to <em>name</em><input list="bill-people" value={f.payee} onChange={e => pickPerson(e.target.value)} placeholder="e.g. Bilal Ahmed" /></label>
-        <datalist id="bill-people">{names.map(n => <option key={n} value={n} />)}</datalist>
-        <label>WhatsApp number <em>for updates</em><input type="tel" inputMode="tel" value={f.payeePhone} onChange={e => set("payeePhone", e.target.value)} placeholder="0300 1234567" /></label>
-        <label>Person is a<select value={f.payeeType} onChange={e => set("payeeType", e.target.value)}>{PAYEE_TYPES.map(c => <option key={c}>{c}</option>)}</select></label>
-        <label>What for<input value={f.title} onChange={e => set("title", e.target.value)} placeholder="e.g. Plaster work, Plot 12" /></label>
-        <CategoryPicker value={f.category} onChange={v => set("category", v)} categories={categories} />
-        <label>Total to pay (Rs)<input type="number" min="0" step="any" inputMode="decimal" value={f.amount} onChange={e => set("amount", e.target.value)} /></label>
-        <label>Pay by <em>due date</em><input type="date" value={f.dueDate} onChange={e => set("dueDate", e.target.value)} /></label>
-        <label>Paid now <em>optional</em><input type="number" min="0" step="any" inputMode="decimal" value={f.paidNow} onChange={e => set("paidNow", e.target.value)} placeholder="0" /></label>
-        {paid > 0 ? <label>Paid by<select value={f.method} onChange={e => set("method", e.target.value)}><option>Cash</option><option>Bank Transfer</option><option>Card</option><option>Online</option><option>Cheque</option></select></label> : <div />}
-        {total > 0 && <div className="pay-hint" style={{ gridColumn: "1 / -1" }}>{paid >= total ? "Whole amount paid: the bill will be marked Paid." : paid > 0 ? `${money(paid)} paid, ${money(total - paid)} still to pay (Partial).` : "Nothing paid yet. You can record payments later, in parts."}</div>}
-        <label className="span-all"><span>Description <em>optional, printed on the payment slip</em></span><textarea rows="2" value={f.notes} onChange={e => set("notes", e.target.value)} placeholder="Extra details: scope of work, agreement, terms…" /></label>
-        <div className="swap"><Button type="submit" disabled={busy}><Plus size={15} />Save bill</Button></div>
-      </form>
-    </section>
+    <div className="action-bar">
+      <div><h3>Bills to pay</h3><p>Money you owe to an employee, seller or contractor. Pay it in parts; the person can get a WhatsApp update.</p></div>
+      <Button onClick={() => setAdding(true)}><Plus size={16} />New bill</Button>
+    </div>
+    {adding && <NewBillModal bills={bills} names={names} categories={categories} onClose={() => setAdding(false)} onSave={onAdd} />}
 
     <section className="panel">
-      <div className="panel-head"><div><h3>Bills to pay</h3><p>Still to pay: <b className="num">{money(toPay)}</b> · open a bill to record a payment, send a WhatsApp update or download the slip.</p></div>
+      <div className="panel-head"><div><h3>All bills</h3><p>Still to pay: <b className="num">{money(toPay)}</b> · open a bill to record a payment, send a WhatsApp update or download the slip.</p></div>
         <div className="toolbar-right"><label className="search"><Search size={16} /><input placeholder="Search name, title…" value={q} onChange={e => setQ(e.target.value)} /></label></div></div>
       <div className="toolbar"><Segmented label="Show" value={tab} onChange={setTab} options={[["open", "To pay"], ["paid", "Paid"], ["all", "All"]]} /></div>
-      {shown.length === 0 ? <Empty title={bills.length ? "Nothing here" : "No bills yet"} text={bills.length ? "Try another filter or search." : "Add the money you owe to someone above."} /> :
+      {shown.length === 0 ? <Empty title={bills.length ? "Nothing here" : "No bills yet"} text={bills.length ? "Try another filter or search." : "Press “New bill” to add money you owe to someone."} /> :
         <div className="table-wrap"><table><thead><tr><th>Person</th><th>For</th><th className="r">Total</th><th className="r">Paid / left</th><th>Status</th></tr></thead>
           <tbody>{list.map(b => <tr key={b.id} className="clickable" onClick={() => onOpen(b)}>
             <td><b>{b.customer}</b><small>{b.payeeType}</small></td><td>{b.service}{b.notes && <small>{b.notes}</small>}<small>{b.category}{b.dueDate ? ` · due ${fmtDate(b.dueDate)}` : ""}</small></td>
@@ -381,9 +402,11 @@ export default function Expenses({ sales, expenses, bills = [], budgets, people 
   const [tab, setTab] = useState("report");
   const [profile, setProfile] = useState(null);
   const openProfile = c => { setProfile(c); setTab("profiles"); window.scrollTo(0, 0); };
+  // Choosing a tab (including "Profiles" itself) always starts from the list; a profile only opens when you tap it.
+  const changeTab = t => { setProfile(null); setTab(t); };
   const cats = useMemo(() => mergeCategories(categories, expenses.map(e => e.category), bills.map(b => b.category)), [categories, expenses, bills]);
   return <>
-    <Segmented label="Expenses section" value={tab} onChange={setTab} options={[["report", "Report"], ["entries", "Expenses"], ["bills", `Bills${bills.filter(isOpen).length ? ` (${bills.filter(isOpen).length})` : ""}`], ["profiles", "Profiles"]]} />
+    <Segmented label="Expenses section" value={tab} onChange={changeTab} options={[["report", "Report"], ["entries", "Expenses"], ["bills", `Bills${bills.filter(isOpen).length ? ` (${bills.filter(isOpen).length})` : ""}`], ["profiles", "Profiles"]]} />
     {tab === "report" ? <Report sales={sales} expenses={expenses} /> : tab === "bills" ? <Bills {...{ bills, people, categories: cats, onAdd: onAddBill, onOpen: onOpenBill, notify }} /> : tab === "profiles" ? <Profiles {...{ categories: cats, expenses, bills, people, selected: profile, setSelected: setProfile, onAdd, onAddCategory, onRemove, onOpenBill, notify }} /> : <Entries {...{ expenses, budgets, people, categories: cats, onOpenProfile: openProfile, onAdd, onRemove, onSetLimit, notify }} />}
   </>;
 }
