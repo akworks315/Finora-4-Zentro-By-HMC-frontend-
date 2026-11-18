@@ -1,3 +1,4 @@
+import { quotationPdfFile } from "./quotationPdf";
 import { money, fmtDate, waNumber, prettyPhone, isOpen, siteOf } from "./lib";
 import { renderInvoiceImage } from "./invoiceImage";
 
@@ -80,4 +81,20 @@ export function openChatWithText(number, text) {
   if (!n) return;
   if (isMobileDevice()) openWhatsAppApp(n, text);
   else window.open(`https://wa.me/${n}?text=${encodeURIComponent(text)}`, "_blank");
+}
+
+// ---------- Quotation on WhatsApp ----------
+export function quotationMessage(q, company) {
+  return [`Hello${q.customer ? " " + q.customer : ""},`, `Here is our quotation ${q.id} from ${company}.`, q.title ? `Scope: ${q.title}` : "", `Total cost: ${money(q.total)}`, q.validUntil ? `Valid until: ${fmtDate(q.validUntil)}` : "", "The detailed quotation (PDF) is attached. Please reply to confirm or ask for any changes.", "Thank you."].filter(Boolean).join("\n");
+}
+// Phones: opens the share sheet with the PDF so you pick WhatsApp (and the chat). Computers: downloads the PDF and opens WhatsApp with the message ready.
+export async function shareQuotation(q, company) {
+  const text = quotationMessage(q, company), file = await quotationPdfFile(q, company);
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], text, title: `Quotation ${q.id}` }); return "shared"; } catch (e) { if (e && e.name === "AbortError") return "cancelled"; }
+  }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = file.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  const n = waNumber(q.customerPhone);
+  window.open(`https://wa.me/${n || ""}?text=${encodeURIComponent(text)}`, "_blank");
+  return "opened";
 }

@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { LayoutDashboard, ReceiptText, Users, Plus, Menu, X, RefreshCw, AlertCircle, CheckCircle2, Sun, Moon, ArrowUpRight, Calculator, Wallet } from "lucide-react";
+import { LayoutDashboard, ReceiptText, Users, Plus, Menu, X, RefreshCw, AlertCircle, CheckCircle2, Sun, Moon, ArrowUpRight, Calculator, Wallet, FileText } from "lucide-react";
 import { apiRequest, resolveServer } from "./config";
-import { normalize, normalizeWork, normalizeBill, billExpenseRows, dateInRange, num, permitNeedsAction } from "./lib";
+import { normalize, normalizeWork, normalizeBill, normalizeQuotation, billExpenseRows, dateInRange, num, permitNeedsAction } from "./lib";
 import { openChatWithText } from "./whatsapp";
 import { Button, Clock } from "./components/ui";
 import Dashboard from "./components/Dashboard";
 import Sales from "./components/Sales";
 import Customers from "./components/Customers";
+import Quotations from "./components/Quotations";
 import InvoiceModal from "./components/InvoiceModal";
 import SaleForm from "./components/SaleForm";
 import Logo from "./components/Logo";
@@ -14,16 +15,17 @@ import Calculators from "./components/Calculators";
 import Expenses, { budgetStatus, DEFAULT_CATEGORIES } from "./components/Expenses";
 import Notifications from "./components/Notifications";
 
-const NAV = [["Dashboard", LayoutDashboard], ["Sales & invoices", ReceiptText], ["Customers", Users], ["Expenses", Wallet], ["Work & permissions", Calculator]];
+const NAV = [["Dashboard", LayoutDashboard], ["Sales & invoices", ReceiptText], ["Quotations", FileText], ["Customers", Users], ["Expenses", Wallet], ["Work & permissions", Calculator]];
 const HEAD = {
   "Dashboard": ["Dashboard", "Your sales, money received, expenses and profit at a glance."],
   "Sales & invoices": ["Sales & invoices", "Every sale with its invoice. Open one to preview or download the PDF."],
+  "Quotations": ["Quotations", "Make a price quotation for a client and share it on WhatsApp. Confirm it to create the invoice."],
   "Customers": ["Customers", "Who you sell to and who still owes you."],
   "Expenses": ["Expenses", "Month-by-month income, spending and profit or loss."],
   "Work & permissions": ["Work & permissions", "Working permission for each area, and the work given to employees. Renew before it expires."]
 };
 // Short names for the phone tab bar (like WhatsApp: icon + small label at the bottom).
-const TAB_LABEL = { "Dashboard": "Home", "Sales & invoices": "Sales", "Customers": "Customers", "Expenses": "Expenses", "Work & permissions": "Work" };
+const TAB_LABEL = { "Dashboard": "Home", "Sales & invoices": "Sales", "Quotations": "Quotes", "Customers": "Customers", "Expenses": "Expenses", "Work & permissions": "Work" };
 const DEFAULT_PORTFOLIO = "https://portfolio-web-psi-rosy.vercel.app/";
 
 export default function App() {
@@ -34,6 +36,7 @@ export default function App() {
   const [budgets, setBudgets] = useState({});
   const [works, setWorks] = useState([]);
   const [payables, setPayables] = useState([]);
+  const [quotes, setQuotes] = useState([]);
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);   // expense categories = profiles (built-in + your own)
   const [navTick, setNavTick] = useState(0);   // bills you owe to employees / sellers
   const [notice, setNotice] = useState(null);   // WhatsApp update the server could not send by itself
@@ -63,9 +66,9 @@ export default function App() {
     setLoading(true); setError("");
     try {
       setServer(await resolveServer(true));
-      const [sales, exp, bud, biz, wrk, bills, cats] = await Promise.all([apiRequest("/sales"), apiRequest("/expenses"), apiRequest("/budgets"), apiRequest("/settings"), apiRequest("/works"), apiRequest("/payables"), apiRequest("/categories")]);
-      if (!Array.isArray(sales) || !Array.isArray(exp) || !Array.isArray(wrk) || !Array.isArray(bills)) throw new Error("The server returned unexpected data.");
-      setRaw(sales); setWorks(wrk); setPayables(bills); if (Array.isArray(cats) && cats.length) setCategories(cats); setExpenses(exp); setBudgets(Object.fromEntries(bud.map(b => [b.category, b.limit]))); setBusiness(biz); setLoaded(true);
+      const [sales, exp, bud, biz, wrk, bills, cats, quo] = await Promise.all([apiRequest("/sales"), apiRequest("/expenses"), apiRequest("/budgets"), apiRequest("/settings"), apiRequest("/works"), apiRequest("/payables"), apiRequest("/categories"), apiRequest("/quotations")]);
+      if (!Array.isArray(sales) || !Array.isArray(exp) || !Array.isArray(wrk) || !Array.isArray(bills) || !Array.isArray(quo)) throw new Error("The server returned unexpected data.");
+      setRaw(sales); setWorks(wrk); setPayables(bills); setQuotes(quo); if (Array.isArray(cats) && cats.length) setCategories(cats); setExpenses(exp); setBudgets(Object.fromEntries(bud.map(b => [b.category, b.limit]))); setBusiness(biz); setLoaded(true);
     } catch (e) { setError(e.message || "Could not load your data."); }
     finally { setLoading(false); }
   }, []);
@@ -77,6 +80,7 @@ export default function App() {
   const billRows = useMemo(() => payables.map(normalizeBill).sort((a, b) => b.date - a.date), [payables]);
   // Every payment on a bill is money spent: merge those into the expense list used by reports, budgets and the dashboard.
   const expenseRows = useMemo(() => [...expenses, ...billExpenseRows(billRows)], [expenses, billRows]);
+  const quoteRows = useMemo(() => quotes.map(normalizeQuotation), [quotes]);
   const open = all.find(r => r.id === openId) || billRows.find(r => r.id === openId) || null;
   const customers = useMemo(() => {
     const map = new Map();   // newest invoice first, so the most recent email/number wins
@@ -130,6 +134,30 @@ export default function App() {
     if (!saved?.id) throw new Error("The server saved the sale but did not return its invoice number. Refresh the page.");
     setRaw(list => [saved, ...list]); setForm(false); setOpenId(saved.id); notify(`Sale saved as ${saved.id}`);
   };
+  // ---------- Quotations: an invoice is created only when a quotation is confirmed ----------
+  const putQuote = rec => setQuotes(l => l.some(x => x.id === rec.id) ? l.map(x => x.id === rec.id ? rec : x) : [rec, ...l]);
+  const saveQuote = async (data, id) => {
+    const rec = await apiRequest(id ? `/quotations/${encodeURIComponent(id)}` : "/quotations", { method: id ? "PATCH" : "POST", body: JSON.stringify(data) });
+    putQuote(rec); notify(id ? `${rec.id} saved` : `Quotation ${rec.id} created`); return normalizeQuotation(rec);
+  };
+  const patchQuote = async (q, changes, quiet) => {
+    try { const rec = await apiRequest(`/quotations/${encodeURIComponent(q.id)}`, { method: "PATCH", body: JSON.stringify(changes) }); putQuote(rec); if (!quiet) notify(`${q.id} marked ${rec.status}`); }
+    catch (e) { notify(e.message, true); }
+  };
+  const duplicateQuote = async q => {
+    const rec = await apiRequest(`/quotations/${encodeURIComponent(q.id)}/duplicate`, { method: "POST" });
+    putQuote(rec); notify(`Copied as ${rec.id}. Add the new customer's details.`); return normalizeQuotation(rec);
+  };
+  const confirmQuote = async (q, details) => {
+    const r = await apiRequest(`/quotations/${encodeURIComponent(q.id)}/confirm`, { method: "POST", body: JSON.stringify(details) });
+    putQuote(r.quotation); setRaw(l => [r.invoice, ...l]); setOpenId(r.invoice.id);
+    notify(`${q.id} confirmed. Invoice ${r.invoice.id} created for ${r.invoice.customer}.`);
+  };
+  const deleteQuote = async q => {
+    try { await apiRequest(`/quotations/${encodeURIComponent(q.id)}`, { method: "DELETE" }); setQuotes(l => l.filter(x => x.id !== q.id)); notify(`${q.id} deleted`); }
+    catch (e) { notify(e.message, true); }
+  };
+
   // A bill = money you have to pay to a person (can be paid in parts).
   const saveBill = async data => {
     const b = await apiRequest("/payables", { method: "POST", body: JSON.stringify(data) });
@@ -212,6 +240,7 @@ export default function App() {
         {loaded && <>
           {page === "Dashboard" && <Dashboard rows={dashRows} allRows={all} expenses={expenseRows} works={workRows} goWork={() => go("Work & permissions")} range={dashRange} setRange={setDashRange} onOpen={r => setOpenId(r.id)} onMarkPaid={markPaid} goSales={() => go("Sales & invoices")} goExpenses={() => go("Expenses")} />}
           {page === "Sales & invoices" && <Sales key={salesQuery} initialQuery={salesQuery} rows={salesRows} range={salesRange} setRange={setSalesRange} onOpen={r => setOpenId(r.id)} onMarkPaid={markPaid} onAdd={() => setForm(true)} />}
+          {page === "Quotations" && <Quotations quotes={quoteRows} company={company} onSave={saveQuote} onPatch={patchQuote} onDuplicate={duplicateQuote} onConfirm={confirmQuote} onDelete={deleteQuote} onOpenInvoice={id => setOpenId(id)} notify={notify} />}
           {page === "Customers" && <Customers rows={all} onOpen={r => setOpenId(r.id)} />}
           {page === "Expenses" && <Expenses sales={all} expenses={expenseRows} bills={billRows} budgets={budgets} people={people} categories={categories} onAddCategory={addCategory} onDeleteCategory={deleteCategory} onAddBill={saveBill} onOpenBill={b => setOpenId(b.id)} onAdd={addExpense} onRemove={removeExpense} onSetLimit={setLimit} notify={notify} />}
           {page === "Work & permissions" && <Calculators works={workRows} employees={people} onSaveWork={saveWork} onRenewWork={renewWork} onWorkStatus={setWorkStatus} onDeleteWork={deleteWork} onBillWork={billFromWork} notify={notify} />}

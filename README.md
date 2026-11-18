@@ -44,3 +44,8 @@ Every form has a **Description** field (sale, expense, bill, work order, payment
 - **Expense profiles** (Expenses > Profiles): every category is a profile, like a customer. Create your own (Home, Office, Site A...) from *New profile* or while adding an expense / bill (*＋ New profile…* in the category list). Open a profile to see its expenses, bills to pay, add an expense, and *Download Excel*.
 - **Work & permissions** now has only *Working permission for this area* (save) and *Work given & working permissions* (list, Renew, Complete, history).
 - Excel files are real .xlsx (made in the browser, no extra library).
+
+## Quotations
+New **Quotations** page (tab "Quotes" on phones). Press *New quotation*, then use the **+** buttons to add only what you need: sections, items (description, qty, unit, rate), customer details, valid until, discount, tax, description, terms & conditions, custom fields. Customer details are optional.
+Open a quotation to **Print**, download the **PDF** (same look as the invoice: logo + business name), **share on WhatsApp** (phones: share sheet with the PDF; computers: PDF downloads and WhatsApp opens with the message), **Edit**, or **Use for another customer** (copy without the customer).
+**Confirm** is the only way an invoice is created: it asks for the customer's name and details, creates the invoice and adds the customer to Customers. Needs backend v4.2.

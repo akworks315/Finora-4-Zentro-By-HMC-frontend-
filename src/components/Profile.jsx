@@ -2,11 +2,11 @@ import React from "react";
 import { ChevronLeft } from "lucide-react";
 
 // Shared "profile" screen (like a contact card in a phone app): back button, big header, stat tiles, action buttons, then content.
-export function Profile({ onBack, backLabel, avatar, title, subtitle, chips = null, stats = [], actions, children }) {
+export function Profile({ onBack, backLabel, topAction = null, avatar, title, subtitle, chips = null, stats = [], actions, children }) {
   return <div className="profile">
     <button className="back-btn" onClick={onBack}><ChevronLeft size={19} />{backLabel}</button>
     <section className="profile-head">
-      <span className="profile-avatar">{avatar}</span>
+      <div className="profile-head-top"><span className="profile-avatar">{avatar}</span>{topAction}</div>
       <div className="profile-id"><h2>{title}</h2>{subtitle && <p>{subtitle}</p>}</div>
       {chips && <div className="profile-chips">{chips}</div>}
     </section>

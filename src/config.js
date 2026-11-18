@@ -11,7 +11,7 @@ const CANDIDATES = [[ONLINE_API, "Online server"], ...(onThisComputer ? [[LOCAL_
 
 let active = null;       // { url, label, dbReady, reason }
 let problem = "";        // why no server could be used, shown to the user
-const MIN_VERSION = 4;   // backends older than this have no part payments / work orders
+const MIN_VERSION = 4.2;   // backends older than this have no part payments / work orders
 let resolving = null;
 export const getActiveServer = () => active;
 
@@ -21,7 +21,7 @@ async function probe([url, label]) {
     const r = await fetch(`${url}/health`, { signal: ctrl.signal, cache: "no-store" });
     const j = await r.json();
     if (!(r.ok && j?.ok)) return { url, label, down: true };
-    return { url, label, dbReady: j.database === "connected", reason: j.reason || "", outdated: parseInt(j.version, 10) < MIN_VERSION || !j.version };
+    return { url, label, dbReady: j.database === "connected", reason: j.reason || "", outdated: parseFloat(j.version) < MIN_VERSION || !j.version };
   } catch { return { url, label, down: true }; }
   finally { clearTimeout(timer); }
 }
@@ -32,7 +32,7 @@ export function resolveServer(force = false) {
   resolving ??= Promise.all(CANDIDATES.map(probe)).then(found => {
     const alive = found.filter(s => !s.down && !s.outdated);
     active = alive.find(s => s.dbReady) || alive[0] || null;
-    problem = active ? "" : found.map(s => s.down ? `${s.label}: not reachable.` : s.outdated ? `${s.label}: running an OLD version of the backend (no part payments / work orders). Redeploy the latest backend on Vercel.` : "").filter(Boolean).join(" ");
+    problem = active ? "" : found.map(s => s.down ? `${s.label}: not reachable.` : s.outdated ? `${s.label}: running an OLD version of the backend (no quotations). Redeploy the latest backend on Vercel.` : "").filter(Boolean).join(" ");
     return active;
   }).finally(() => { resolving = null; });
   return resolving;

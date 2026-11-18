@@ -163,3 +163,23 @@ export const billExpenseRows = bills => bills.flatMap(b => b.payments.map(p => (
 export const docLabels = d => d?.kind === "bill"
   ? { title: "PAYMENT SLIP", sub: "Payment to employee / seller", party: "Paid to", received: "Paid so far", due: "Balance to pay", paid: "Paid in full", method: "Not paid yet" }
   : { title: "INVOICE", sub: "Sales invoice", party: "Bill to", received: "Received", due: "Amount due", paid: "Paid in full", method: "Not paid yet" };
+
+// ---------- Quotations ----------
+export const QUOTE_UNITS = ["L/S", "SFT", "RFT", "No", "M", "Sq M", "Day", "Kg"];
+export const QUOTE_STATUSES = ["Draft", "Sent", "Confirmed", "Rejected"];
+const r2 = n => Math.round((Number(n) || 0) * 100) / 100;
+export const quoteItemAmount = it => r2((Number(it.qty) || 0) * (Number(it.rate) || 0));
+// Same maths as the server: subtotal - discount + tax.
+export function quoteCalc(q) {
+  const subtotal = r2((q.sections || []).reduce((a, s) => a + (s.items || []).reduce((b, it) => b + quoteItemAmount(it), 0), 0));
+  const discount = Math.min(r2(q.discount), subtotal);
+  const tax = r2(((subtotal - discount) * (Number(q.taxPercent) || 0)) / 100);
+  return { subtotal, discount, tax, total: r2(subtotal - discount + tax) };
+}
+export function normalizeQuotation(raw) {
+  const q = { ...raw, id: raw.id, title: raw.title || "", customer: raw.customer || "", customerPhone: raw.customerPhone || "", customerEmail: raw.customerEmail || "", house: raw.house || "", address: raw.address || "",
+    date: toLocalDay(raw.date) || new Date(), validUntil: toLocalDay(raw.validUntil), confirmedAt: toLocalDay(raw.confirmedAt),
+    sections: (raw.sections || []).map(s => ({ title: s.title || "", items: (s.items || []).map(i => ({ description: i.description || "", qty: Number(i.qty), unit: i.unit || "", rate: Number(i.rate) || 0 })) })),
+    extras: raw.extras || [], terms: raw.terms || "", notes: raw.notes || "", status: raw.status || "Draft", invoiceId: raw.invoiceId || "", taxPercent: Number(raw.taxPercent) || 0 };
+  return { ...q, ...quoteCalc(q), itemCount: q.sections.reduce((a, s) => a + s.items.length, 0) };
+}
