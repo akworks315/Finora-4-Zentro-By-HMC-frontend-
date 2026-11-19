@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { LayoutDashboard, ReceiptText, Users, Plus, Menu, X, RefreshCw, AlertCircle, CheckCircle2, Sun, Moon, ArrowUpRight, Calculator, Wallet, FileText } from "lucide-react";
+import { LayoutDashboard, ReceiptText, Users, Plus, Menu, X, RefreshCw, AlertCircle, CheckCircle2, Sun, Moon, ArrowUpRight, Calculator, Wallet, FileText, Info } from "lucide-react";
 import { apiRequest, resolveServer } from "./config";
 import { normalize, normalizeWork, normalizeBill, normalizeQuotation, billExpenseRows, dateInRange, num, permitNeedsAction } from "./lib";
 import { openChatWithText } from "./whatsapp";
@@ -8,6 +8,7 @@ import Dashboard from "./components/Dashboard";
 import Sales from "./components/Sales";
 import Customers from "./components/Customers";
 import Quotations from "./components/Quotations";
+import About from "./components/About";
 import InvoiceModal from "./components/InvoiceModal";
 import SaleForm from "./components/SaleForm";
 import Logo from "./components/Logo";
@@ -15,7 +16,7 @@ import Calculators from "./components/Calculators";
 import Expenses, { budgetStatus, DEFAULT_CATEGORIES } from "./components/Expenses";
 import Notifications from "./components/Notifications";
 
-const NAV = [["Dashboard", LayoutDashboard], ["Sales & invoices", ReceiptText], ["Quotations", FileText], ["Customers", Users], ["Expenses", Wallet], ["Work & permissions", Calculator]];
+const NAV = [["Dashboard", LayoutDashboard], ["Customers", Users], ["Sales & invoices", ReceiptText], ["Quotations", FileText], ["Expenses", Wallet], ["Work & permissions", Calculator]];
 const HEAD = {
   "Dashboard": ["Dashboard", "Your sales, money received, expenses and profit at a glance."],
   "Sales & invoices": ["Sales & invoices", "Every sale with its invoice. Open one to preview or download the PDF."],
@@ -25,7 +26,7 @@ const HEAD = {
   "Work & permissions": ["Work & permissions", "Working permission for each area, and the work given to employees. Renew before it expires."]
 };
 // Short names for the phone tab bar (like WhatsApp: icon + small label at the bottom).
-const TAB_LABEL = { "Dashboard": "Home", "Sales & invoices": "Sales", "Quotations": "Quotes", "Customers": "Customers", "Expenses": "Expenses", "Work & permissions": "Work" };
+const TAB_LABEL = { "Dashboard": "Home", "Sales & invoices": "Invoices", "Quotations": "Quotes", "Customers": "Customers", "Expenses": "Expenses", "Work & permissions": "Work" };
 const DEFAULT_PORTFOLIO = "https://portfolio-web-psi-rosy.vercel.app/";
 
 export default function App() {
@@ -39,6 +40,7 @@ export default function App() {
   const [quotes, setQuotes] = useState([]);
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);   // expense categories = profiles (built-in + your own)
   const [navTick, setNavTick] = useState(0);   // bills you owe to employees / sellers
+  const [about, setAbout] = useState(false);
   const [notice, setNotice] = useState(null);   // WhatsApp update the server could not send by itself
   const [business, setBusiness] = useState({ businessName: "Finora Services", portfolio: "" });
   const [loading, setLoading] = useState(true);
@@ -225,6 +227,7 @@ export default function App() {
           <button className="icon-btn theme-toggle" onClick={() => setTheme(t => t === "dark" ? "light" : "dark")} aria-label={theme === "dark" ? "Switch to day mode" : "Switch to night mode"} title={theme === "dark" ? "Day mode" : "Night mode"}><Sun className="sun" size={18} /><Moon className="moon" size={17} /></button>
           <Notifications invoices={all} budgets={budgetLevels} works={workRows} onOpenInvoice={r => setOpenId(r.id)} goExpenses={() => go("Expenses")} goWork={() => go("Work & permissions")} />
           <button className="icon-btn" onClick={load} aria-label="Refresh data" title="Refresh"><RefreshCw size={17} className={loading ? "spin" : ""} /></button>
+          <button className="icon-btn" onClick={() => setAbout(true)} aria-label="Help and about" title="Help & about"><Info size={18} /></button>
           <Button className="new-sale" onClick={() => setForm(true)} disabled={!loaded}><Plus size={16} /><span className="btn-text">New sale</span></Button>
         </div>
       </header>
@@ -261,6 +264,7 @@ export default function App() {
     </nav>
     {loaded && ["Dashboard", "Sales & invoices", "Customers"].includes(page) && <button className="fab" onClick={() => setForm(true)} aria-label="New sale"><Plus size={24} /></button>}
 
+    {about && <About online={online} server={server} onClose={() => setAbout(false)} />}
     {open && <InvoiceModal invoice={open} company={company} onClose={() => setOpenId(null)} onMarkPaid={markPaid} onCancel={cancel} onDelete={remove} onSavePhone={savePhone} onAddPayment={addPayment} onRemovePayment={removePayment} notice={notice} onSendNotice={sendNotice} onDismissNotice={() => setNotice(null)} notify={notify} />}
     {form && <SaleForm services={services} customers={customers} onClose={() => setForm(false)} onSave={save} />}
     {toast && <div className={`toast ${toast.bad ? "bad" : ""}`} role="status">{toast.bad ? <AlertCircle size={17} /> : <CheckCircle2 size={17} />}{toast.text}</div>}

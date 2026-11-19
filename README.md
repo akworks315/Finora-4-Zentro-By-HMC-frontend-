@@ -49,3 +49,6 @@ Every form has a **Description** field (sale, expense, bill, work order, payment
 New **Quotations** page (tab "Quotes" on phones). Press *New quotation*, then use the **+** buttons to add only what you need: sections, items (description, qty, unit, rate), customer details, valid until, discount, tax, description, terms & conditions, custom fields. Customer details are optional.
 Open a quotation to **Print**, download the **PDF** (same look as the invoice: logo + business name), **share on WhatsApp** (phones: share sheet with the PDF; computers: PDF downloads and WhatsApp opens with the message), **Edit**, or **Use for another customer** (copy without the customer).
 **Confirm** is the only way an invoice is created: it asks for the customer's name and details, creates the invoice and adds the customer to Customers. Needs backend v4.2.
+
+## Help & about
+The **i** icon in the top bar opens *Help & about* with two tabs: **Finora** (what the software does, version, database / server status, tips) and **Developer** (profile card, portfolio link). Edit the developer details (email, WhatsApp, GitHub, LinkedIn) in `src/about.js`. Menu order: Home, Customers, Invoices, Quotes, Expenses, Work.
