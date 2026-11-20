@@ -244,7 +244,7 @@ function Entries({ expenses, budgets, people, categories, onOpenProfile, onAdd, 
 // Pop-up form for a new bill to pay (opened by the "New bill" button).
 function NewBillModal({ bills, names, categories, onClose, onSave }) {
   const due = new Date(); due.setDate(due.getDate() + 14);
-  const [f, setF] = useState({ payee: "", payeePhone: "", payeeType: "Employee", title: "", category: "Labour", amount: "", dueDate: toInputDate(due), paidNow: "", method: "Cash", notes: "" });
+  const [f, setF] = useState({ payee: "", payeePhone: "", payeeType: "Employee", title: "", category: "Labour", amount: "", dueDate: toInputDate(due), paidNow: "", method: "Cash", notes: "", address: "" });
   const [busy, setBusy] = useState(false), [err, setErr] = useState("");
   const set = (k, v) => setF(x => ({ ...x, [k]: v }));
   const total = Number(f.amount) || 0, paid = Number(f.paidNow) || 0;
@@ -257,7 +257,7 @@ function NewBillModal({ bills, names, categories, onClose, onSave }) {
     if (!(total > 0)) return setErr("Enter the total amount you have to pay.");
     if (paid < 0 || paid > total) return setErr("Amount paid now must be between 0 and the total.");
     setBusy(true);
-    try { await onSave({ ...f, payee: f.payee.trim(), title: f.title.trim(), amount: total, paidNow: paid, method: paid > 0 ? f.method : "Not recorded" }); onClose(); }
+    try { await onSave({ ...f, payee: f.payee.trim(), address: f.address.trim(), title: f.title.trim(), amount: total, paidNow: paid, method: paid > 0 ? f.method : "Not recorded" }); onClose(); }
     catch (ex) { setErr(ex.message || "Could not save."); setBusy(false); }
   };
   return <Modal title="New bill to pay" subtitle="Money you have to give to an employee, seller or contractor. You can pay it in parts." onClose={onClose}
@@ -268,6 +268,7 @@ function NewBillModal({ bills, names, categories, onClose, onSave }) {
       <datalist id="bill-people">{names.map(n => <option key={n} value={n} />)}</datalist>
       <label>WhatsApp number <em>for updates</em><input type="tel" inputMode="tel" value={f.payeePhone} onChange={e => set("payeePhone", e.target.value)} placeholder="0300 1234567" /></label>
       <label>Person is a<select value={f.payeeType} onChange={e => set("payeeType", e.target.value)}>{PAYEE_TYPES.map(c => <option key={c}>{c}</option>)}</select></label>
+      <label className="span-2"><span>Address <em>optional</em></span><input value={f.address} onChange={e => set("address", e.target.value)} placeholder="e.g. Plot 12, Street 4, DHA Phase 6, Karachi" autoComplete="street-address" /></label>
       <label>What for<input value={f.title} onChange={e => set("title", e.target.value)} placeholder="e.g. Plaster work, Plot 12" /></label>
       <label>Total to pay (Rs)<input type="number" min="0" step="any" inputMode="decimal" value={f.amount} onChange={e => set("amount", e.target.value)} /></label>
       <label>Pay by <em>due date</em><input type="date" value={f.dueDate} onChange={e => set("dueDate", e.target.value)} /></label>
@@ -284,7 +285,7 @@ function Bills({ bills, people, categories, onAdd, onOpen, notify }) {
   const [adding, setAdding] = useState(false), [q, setQ] = useState(""), [tab, setTab] = useState("open"), [all, setAll] = useState(false);
   const names = useMemo(() => [...new Set([...people, ...bills.map(b => b.customer)])].sort((a, b) => a.localeCompare(b)), [people, bills]);
   const toPay = bills.filter(isOpen).reduce((a, b) => a + b.balance, 0);
-  const shown = bills.filter(b => (tab === "all" || (tab === "open" && isOpen(b)) || (tab === "paid" && b.status === "Paid")) && [b.customer, b.service, b.category].join(" ").toLowerCase().includes(q.trim().toLowerCase()));
+  const shown = bills.filter(b => (tab === "all" || (tab === "open" && isOpen(b)) || (tab === "paid" && b.status === "Paid")) && [b.customer, b.service, b.category, b.address].join(" ").toLowerCase().includes(q.trim().toLowerCase()));
   const list = q || all ? shown : shown.slice(0, 8);
 
   return <>
@@ -301,7 +302,7 @@ function Bills({ bills, people, categories, onAdd, onOpen, notify }) {
       {shown.length === 0 ? <Empty title={bills.length ? "Nothing here" : "No bills yet"} text={bills.length ? "Try another filter or search." : "Press “New bill” to add money you owe to someone."} /> :
         <div className="table-wrap"><table><thead><tr><th>Person</th><th>For</th><th className="r">Total</th><th className="r">Paid / left</th><th>Status</th></tr></thead>
           <tbody>{list.map(b => <tr key={b.id} className="clickable" onClick={() => onOpen(b)}>
-            <td><b>{b.customer}</b><small>{b.payeeType}</small></td><td>{b.service}{b.notes && <small>{b.notes}</small>}<small>{b.category}{b.dueDate ? ` · due ${fmtDate(b.dueDate)}` : ""}</small></td>
+            <td><b>{b.customer}</b><small>{b.payeeType}</small></td><td>{b.service}{b.address && <small>{b.address}</small>}{b.notes && <small>{b.notes}</small>}<small>{b.category}{b.dueDate ? ` · due ${fmtDate(b.dueDate)}` : ""}</small></td>
             <td className="r num"><b>{money(b.amount)}</b></td><td className="r num">{money(b.paidAmount)}<small>left {money(b.balance)}</small></td><td><Status value={b.status} /></td></tr>)}</tbody></table></div>}
       {!q && shown.length > 8 && <div className="view-all"><Button kind="ghost" onClick={() => setAll(v => !v)}>{all ? <><ChevronUp size={15} />Show latest 8</> : <><ChevronDown size={15} />View all {shown.length} bills</>}</Button></div>}
     </section>
@@ -343,7 +344,7 @@ function Profiles({ categories, expenses, bills, people, selected, setSelected, 
       { name: "Summary", rows: [["Profile", selected], ["Total spent (PKR)", st.total], ["Spent this month (PKR)", st.month], ["Entries", st.count], ["Bills still to pay (PKR)", st.toPay]] },
       { name: "Expenses", rows: entryRows(rows) },
       { name: "By person", rows: personRows(rows) },
-      { name: "Bills to pay", rows: [["Person", "For", "Description", "Total (PKR)", "Paid (PKR)", "Left (PKR)", "Status", "Due date"], ...myBills.map(b => [b.customer, b.service, b.notes, b.amount, b.paidAmount, b.balance, b.status, b.dueDate])] }
+      { name: "Bills to pay", rows: [["Person", "For", "Address", "Description", "Total (PKR)", "Paid (PKR)", "Left (PKR)", "Status", "Due date"], ...myBills.map(b => [b.customer, b.service, b.address, b.notes, b.amount, b.paidAmount, b.balance, b.status, b.dueDate])] }
     ]);
     return <Profile onBack={() => { setSelected(null); setQ(""); setView("expenses"); }} backLabel="All profiles" topAction={selected !== "Other" && <button className="del-pill" onClick={() => del(selected, st.count + myBills.length)} title="Delete this profile"><span className="del-ico"><Trash2 size={14} /></span>Delete profile</button>} avatar={selected[0].toUpperCase()} title={selected} subtitle="Everything you spent under this profile"
       stats={[["Total spent", money(st.total)], ["This month", money(st.month)], ["Entries", st.count], ["Bills to pay", st.toPay ? money(st.toPay) : "—", st.toPay ? "bad" : ""]]}
@@ -358,7 +359,7 @@ function Profiles({ categories, expenses, bills, people, selected, setSelected, 
               <td className="r"><Button kind="danger-soft" aria-label={`Delete ${r.title}`} title="Delete this expense" onClick={async () => { if (!window.confirm(`Delete “${r.title}”?`)) return; try { await onRemove(r.id); notify("Expense deleted"); } catch (ex) { notify(ex.message, true); } }}><Trash2 size={15} /></Button></td></tr>)}</tbody></table></div>)
         : (myBills.length === 0 ? <Empty title="No bills" text={`Bills to pay that you create with the category “${selected}” appear here.`} /> :
           <div className="table-wrap"><table><thead><tr><th>Person</th><th>For</th><th className="r">Total</th><th className="r">Paid / left</th><th>Status</th></tr></thead>
-            <tbody>{myBills.map(b => <tr key={b.id} className="clickable" onClick={() => onOpenBill(b)}><td><b>{b.customer}</b><small>{b.payeeType}</small></td><td>{b.service}{b.notes && <small>{b.notes}</small>}</td><td className="r num"><b>{money(b.amount)}</b></td><td className="r num">{money(b.paidAmount)}<small>left {money(b.balance)}</small></td><td><Status value={b.status} /></td></tr>)}</tbody></table></div>)}
+            <tbody>{myBills.map(b => <tr key={b.id} className="clickable" onClick={() => onOpenBill(b)}><td><b>{b.customer}</b><small>{b.payeeType}</small></td><td>{b.service}{b.address && <small>{b.address}</small>}{b.notes && <small>{b.notes}</small>}</td><td className="r num"><b>{money(b.amount)}</b></td><td className="r num">{money(b.paidAmount)}<small>left {money(b.balance)}</small></td><td><Status value={b.status} /></td></tr>)}</tbody></table></div>)}
       </section>
       {addExp && <NewExpenseModal initialCategory={selected} names={allNames} categories={names} onClose={() => setAddExp(false)} onSave={async d => { await onAdd(d); notify("Expense added"); }} />}
     </Profile>;

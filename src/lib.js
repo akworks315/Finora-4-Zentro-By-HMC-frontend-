@@ -154,7 +154,7 @@ export const permitNeedsAction = w => w.permit.level === "expired" || w.permit.l
 
 // ---------- Bills to pay (money you owe to a person), shaped like invoices so the same screens work ----------
 export function normalizeBill(raw) {
-  const r = normalize({ id: raw.id, customer: raw.payee, customerPhone: raw.payeePhone, service: raw.title, amount: raw.amount, date: raw.date, dueDate: raw.dueDate, paidAt: raw.paidAt, status: raw.status, payments: raw.payments, paidAmount: raw.paidAmount, method: raw.method, notes: raw.notes });
+  const r = normalize({ id: raw.id, customer: raw.payee, customerPhone: raw.payeePhone, address: raw.address, service: raw.title, amount: raw.amount, date: raw.date, dueDate: raw.dueDate, paidAt: raw.paidAt, status: raw.status, payments: raw.payments, paidAmount: raw.paidAmount, method: raw.method, notes: raw.notes });
   return { ...r, kind: "bill", payeeType: raw.payeeType || "Other", category: raw.category || "Other" };
 }
 // Every payment made on a bill is money spent, so it appears in the expense lists, reports and budgets as a normal expense row.
